@@ -1,4 +1,4 @@
-const debug = require('debug')('ccd-case-activity-api:socket-utils-remove');
+const debug = require('debug')('rpx-case-activity-api:socket-utils-remove');
 const redisActivityKeys = require('../redis/keys');
 
 const remove = {

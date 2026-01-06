@@ -1,4 +1,4 @@
-const debug = require('debug')('ccd-case-activity-api:socket-utils-store');
+const debug = require('debug')('rpx-case-activity-api:socket-utils-store');
 const redisActivityKeys = require('../redis/keys');
 const { toUserString } = require('./other');
 
