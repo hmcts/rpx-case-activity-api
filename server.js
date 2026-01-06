@@ -5,7 +5,7 @@
  */
 require('@hmcts/properties-volume').addTo(require('config'));
 const { normalizePort, onListening, onServerError } = require('./app/util/utils');
-const debug = require('debug')('rpx-case-activity-api:server');
+const debug = require('debug')('ccd-case-activity-api:server');
 const http = require('http');
 const app = require('./app');
 

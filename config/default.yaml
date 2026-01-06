@@ -23,7 +23,7 @@ app:
   requestTimeoutSec: 5
   storeCleanupCrontab: "* * * * *"
 appInsights:
-  roleName: "rpx-case-activity-api"
+  roleName: "ccd-case-activity-api"
   enabled: true
 
 secrets:

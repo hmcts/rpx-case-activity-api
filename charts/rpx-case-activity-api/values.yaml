@@ -15,10 +15,10 @@ global:
     allowInsecureImages: true
 
 nodejs:
-  image: 'hmctspublic.azurecr.io/ccd/rpx-case-activity-api:latest'
+  image: 'hmctspublic.azurecr.io/ccd/ccd-case-activity-api:latest'
   applicationPort: 3460
   aadIdentityName: ccd
-  ingressHost: rpx-case-activity-api-{{ .Values.global.environment }}.service.core-compute-{{ .Values.global.environment }}.internal
+  ingressHost: ccd-case-activity-api-{{ .Values.global.environment }}.service.core-compute-{{ .Values.global.environment }}.internal
   autoscaling:
     enabled: false
     minReplicas: 8
