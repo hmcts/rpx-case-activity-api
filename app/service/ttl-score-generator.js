@@ -1,5 +1,5 @@
 const config = require('config');
-const debug = require('debug')('ccd-case-activity-api:score-generator');
+const debug = require('debug')('rpx-case-activity-api:score-generator');
 
 exports.getScore = () => {
   const now = Date.now();
