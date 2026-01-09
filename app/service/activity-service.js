@@ -1,3 +1,4 @@
+const moment = require('moment');
 const debug = require('debug')('rpx-case-activity-api:activity-service');
 
 module.exports = (config, redis, ttlScoreGenerator) => {

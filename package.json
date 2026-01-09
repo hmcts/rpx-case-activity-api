@@ -1,6 +1,6 @@
 {
   "name": "rpx-case-activity-api",
-  "version": "0.1.0-socket-alpha",
+  "version": "0.0.2",
   "private": true,
   "engines": {
     "node": "^20.11.0"
