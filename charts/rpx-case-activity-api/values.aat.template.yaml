@@ -1,3 +1,0 @@
-nodejs:
-  ingressHost: ${SERVICE_FQDN}
-  image: ${IMAGE_NAME}
