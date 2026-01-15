@@ -2,32 +2,25 @@ const expect = require('chai').expect;
 const router = require('../../../../../app/socket/router');
 
 describe('socket.router', () => {
-  const MOCK_SOCKET_SERVER = {
+  const createMockEventEmitter = () => ({
     events: {},
-    on: (event, eventHandler) => {
-      MOCK_SOCKET_SERVER.events[event] = eventHandler;
+    on: function(event, eventHandler) {
+      this.events[event] = eventHandler;
     },
-    dispatch: (event, socket) => {
-      const handler = MOCK_SOCKET_SERVER.events[event];
+    dispatch: function(event, ...args) {
+      const handler = this.events[event];
       if (handler) {
-        handler(socket);
+        handler(...args);
       }
     }
-  };
+  });
+
+  const MOCK_SOCKET_SERVER = createMockEventEmitter();
   const MOCK_IO_ROUTER = {
-    events: {},
+    ...createMockEventEmitter(),
     attachments: [],
-    on: (event, eventHandler) => {
-      MOCK_IO_ROUTER.events[event] = eventHandler;
-    },
     attach: (socket, packet, next) => {
       MOCK_IO_ROUTER.attachments.push({ socket, packet, next });
-    },
-    dispatch: (event, socket, ctx, next) => {
-      const handler = MOCK_IO_ROUTER.events[event];
-      if (handler) {
-        handler(socket, ctx, next);
-      }
     }
   };
   const MOCK_HANDLERS = {
@@ -121,57 +114,44 @@ describe('socket.router', () => {
       }
     };
     const MOCK_JSON_USER = JSON.parse(MOCK_SOCKET.handshake.query.user);
+
+    const testActivityHandler = (activity, expectedMethod = 'addActivity', expectedContext = MOCK_CONTEXT) => {
+      let nextCalled = false;
+      MOCK_IO_ROUTER.dispatch(activity, MOCK_SOCKET, expectedContext, () => {
+        nextCalled = true;
+        expect(MOCK_HANDLERS.calls).to.have.lengthOf(1);
+        expect(MOCK_HANDLERS.calls[0].method).to.equal(expectedMethod);
+        expect(MOCK_HANDLERS.calls[0].params.socket).to.equal(MOCK_SOCKET);
+        
+        if (expectedMethod === 'addActivity') {
+          expect(MOCK_HANDLERS.calls[0].params.caseId).to.equal(expectedContext.request.caseId);
+          expect(MOCK_HANDLERS.calls[0].params.user).to.deep.equal(MOCK_JSON_USER);
+          expect(MOCK_HANDLERS.calls[0].params.activity).to.equal(activity);
+        } else if (expectedMethod === 'watch') {
+          expect(MOCK_HANDLERS.calls[0].params.caseIds).to.deep.equal(expectedContext.request.caseIds);
+        }
+      });
+      expect(nextCalled).to.be.true;
+    };
+
     beforeEach(() => {
       // Dispatch the connection each time.
       MOCK_SOCKET_SERVER.dispatch('connection', MOCK_SOCKET);
     });
+
     it('should appropriately handle registering a user', () => {
       expect(router.getUser(MOCK_SOCKET.id)).to.deep.equal(MOCK_JSON_USER);
     });
+
     it('should appropriately handle viewing a case', () => {
-      const ACTIVITY = 'view';
-      let nextCalled = false;
-      MOCK_IO_ROUTER.dispatch(ACTIVITY, MOCK_SOCKET, MOCK_CONTEXT, () => {
-        // next() should be called last so everything else should have been done already.
-        nextCalled = true;
-        expect(MOCK_HANDLERS.calls).to.have.lengthOf(1);
-        expect(MOCK_HANDLERS.calls[0].method).to.equal('addActivity');
-        expect(MOCK_HANDLERS.calls[0].params.socket).to.equal(MOCK_SOCKET);
-        expect(MOCK_HANDLERS.calls[0].params.caseId).to.equal(MOCK_CONTEXT.request.caseId);
-        // Note that the MOCK_CONTEXT doesn't include the user, which means we had to get it from elsewhere.
-        expect(MOCK_HANDLERS.calls[0].params.user).to.deep.equal(MOCK_JSON_USER);
-        expect(MOCK_HANDLERS.calls[0].params.activity).to.equal(ACTIVITY);
-      });
-      expect(nextCalled).to.be.true;
+      testActivityHandler('view');
     });
+
     it('should appropriately handle editing a case', () => {
-      const ACTIVITY = 'edit';
-      let nextCalled = false;
-      MOCK_IO_ROUTER.dispatch(ACTIVITY, MOCK_SOCKET, MOCK_CONTEXT, () => {
-        // next() should be called last so everything else should have been done already.
-        nextCalled = true;
-        expect(MOCK_HANDLERS.calls).to.have.lengthOf(1);
-        expect(MOCK_HANDLERS.calls[0].method).to.equal('addActivity');
-        expect(MOCK_HANDLERS.calls[0].params.socket).to.equal(MOCK_SOCKET);
-        expect(MOCK_HANDLERS.calls[0].params.caseId).to.equal(MOCK_CONTEXT.request.caseId);
-        // Note that the MOCK_CONTEXT doesn't include the user, which means we had to get it from elsewhere.
-        expect(MOCK_HANDLERS.calls[0].params.user).to.deep.equal(MOCK_JSON_USER);
-        expect(MOCK_HANDLERS.calls[0].params.activity).to.equal(ACTIVITY);
-      });
-      expect(nextCalled).to.be.true;
+      testActivityHandler('edit');
     });
     it('should appropriately handle watching cases', () => {
-      const ACTIVITY = 'watch';
-      let nextCalled = false;
-      MOCK_IO_ROUTER.dispatch(ACTIVITY, MOCK_SOCKET, MOCK_CONTEXT, () => {
-        // next() should be called last so everything else should have been done already.
-        nextCalled = true;
-        expect(MOCK_HANDLERS.calls).to.have.lengthOf(1);
-        expect(MOCK_HANDLERS.calls[0].method).to.equal('watch');
-        expect(MOCK_HANDLERS.calls[0].params.socket).to.equal(MOCK_SOCKET);
-        expect(MOCK_HANDLERS.calls[0].params.caseIds).to.deep.equal(MOCK_CONTEXT.request.caseIds);
-      });
-      expect(nextCalled).to.be.true;
+      testActivityHandler('watch', 'watch');
     });
   });
 

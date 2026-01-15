@@ -7,6 +7,24 @@ describe('socket.service.activity-service', () => {
   // An instance that can be tested.
   let activityService;
 
+  // Helper functions to reduce duplication
+  const expectNoPipelineCalls = () => {
+    expect(MOCK_REDIS.pipelines).to.have.lengthOf(0);
+  };
+
+  const expectPipelineContains = (pipe, ...expectedValues) => {
+    const assertions = expect(pipe).to.be.an('array').with.a.lengthOf(expectedValues.length);
+    expectedValues.forEach(val => assertions.and.to.contain(val));
+    return assertions;
+  };
+
+  const expectNotificationSent = (caseId, approximateTime = Date.now(), tolerance = 5) => {
+    const message = MOCK_REDIS.messages.find(m => m.channel === keys.case.base(caseId));
+    expect(message).to.exist;
+    const messageTS = parseInt(message.message, 10);
+    expect(messageTS).to.be.approximately(approximateTime, tolerance);
+  };
+
   const USER_ID = 'a';
   const CASE_ID = '1234567890';
   const TTL_USER = 20;
@@ -116,13 +134,11 @@ describe('socket.service.activity-service', () => {
       const NOW = Date.now();
       activityService.notifyChange(CASE_ID);
       expect(MOCK_REDIS.messages).to.have.lengthOf(1);
-      expect(MOCK_REDIS.messages[0].channel).to.equal(keys.case.base(CASE_ID));
-      const messageTS = parseInt(MOCK_REDIS.messages[0].message, 10);
-      expect(messageTS).to.be.approximately(NOW, 5); // Within 5ms.
+      expectNotificationSent(CASE_ID, NOW);
     });
     it('should handle a null caseId', () => {
       activityService.notifyChange(null);
-      expect(MOCK_REDIS.messages).to.have.lengthOf(0); // Should have been no broadcast.
+      expect(MOCK_REDIS.messages).to.have.lengthOf(0);
     });
   });
 
@@ -133,12 +149,11 @@ describe('socket.service.activity-service', () => {
       expect(MOCK_REDIS.gets).to.have.lengthOf(1);
       expect(MOCK_REDIS.gets[0]).to.equal(keys.socket(SOCKET_ID));
       expect(activity).to.be.an('object');
-      expect(activity.activityKey).to.equal(keys.case.view(CASE_ID)); // Just our mock response.
+      expect(activity.activityKey).to.equal(keys.case.view(CASE_ID));
     });
     it('should handle a null caseId', async () => {
-      const SOCKET_ID = null;
-      const activity = await activityService.getSocketActivity(SOCKET_ID);
-      expect(MOCK_REDIS.messages).to.have.lengthOf(0); // Should have been no broadcast.
+      const activity = await activityService.getSocketActivity(null);
+      expect(MOCK_REDIS.messages).to.have.lengthOf(0);
       expect(activity).to.be.null;
     });
   });
@@ -148,43 +163,45 @@ describe('socket.service.activity-service', () => {
       MOCK_REDIS.pipelineMode = 'user';
     });
 
-    it('should appropriately get user details', async () => {
-      const USER_IDS = ['a', 'b'];
-      const userDetails = await activityService.getUserDetails(USER_IDS);
-      expect(MOCK_REDIS.pipelines).to.have.lengthOf(1);
-      const pipes = MOCK_REDIS.pipelines[0];
-      expect(pipes).to.be.an('array').and.have.lengthOf(USER_IDS.length);
-      USER_IDS.forEach((id, index) => {
+    const verifyUserPipeline = (pipes, userIds) => {
+      expect(pipes).to.be.an('array').and.have.lengthOf(userIds.length);
+      userIds.forEach((id, index) => {
+        expectPipelineContains(pipes[index], 'get', keys.user(id));
+      });
+    };
+
+    const verifyUserDetails = (userDetails, expectedIds) => {
+      expectedIds.forEach((id) => {
         const user = userDetails[id];
         expect(user).to.be.an('object');
         expect(user.forename).to.be.a('string');
         expect(user.surname).to.be.a('string');
-
-        expect(pipes[index]).to.be.an('array')
-          .and.to.have.lengthOf(2)
-          .and.to.contain('get')
-          .and.to.contain(keys.user(id));
       });
+    };
+
+    it('should appropriately get user details', async () => {
+      const USER_IDS = ['a', 'b'];
+      const userDetails = await activityService.getUserDetails(USER_IDS);
+      expect(MOCK_REDIS.pipelines).to.have.lengthOf(1);
+      verifyUserPipeline(MOCK_REDIS.pipelines[0], USER_IDS);
+      verifyUserDetails(userDetails, USER_IDS);
     });
     it('should handle null userIds', async () => {
-      const USER_IDS = null;
-      const userDetails = await activityService.getUserDetails(USER_IDS);
-      expect(MOCK_REDIS.pipelines).to.have.lengthOf(0); // Should have been no calls to redis.
+      const userDetails = await activityService.getUserDetails(null);
+      expectNoPipelineCalls();
       expect(userDetails).to.deep.equal({});
     });
     it('should handle empty userIds', async () => {
-      const USER_IDS = [];
-      const userDetails = await activityService.getUserDetails(USER_IDS);
-      expect(MOCK_REDIS.pipelines).to.have.lengthOf(0); // Should have been no calls to redis.
+      const userDetails = await activityService.getUserDetails([]);
+      expectNoPipelineCalls();
       expect(userDetails).to.deep.equal({});
     });
     it('should handle a missing user', async () => {
       const USER_IDS = ['a', 'b', 'MISSING'];
       const userDetails = await activityService.getUserDetails(USER_IDS);
       expect(MOCK_REDIS.pipelines).to.have.lengthOf(1);
-      const pipes = MOCK_REDIS.pipelines[0];
-      expect(pipes).to.be.an('array').and.have.lengthOf(USER_IDS.length);
-      USER_IDS.forEach((id, index) => {
+      verifyUserPipeline(MOCK_REDIS.pipelines[0], USER_IDS);
+      USER_IDS.forEach((id) => {
         if (id === 'MISSING') {
           expect(userDetails[id]).to.be.undefined;
         } else {
@@ -193,10 +210,6 @@ describe('socket.service.activity-service', () => {
           expect(user.forename).to.be.a('string');
           expect(user.surname).to.be.a('string');
         }
-        expect(pipes[index]).to.be.an('array')
-          .and.to.have.lengthOf(2)
-          .and.to.contain('get')
-          .and.to.contain(keys.user(id));
       });
     });
     it('should handle a null userId', async () => {
@@ -204,22 +217,11 @@ describe('socket.service.activity-service', () => {
       const userDetails = await activityService.getUserDetails(USER_IDS);
       expect(MOCK_REDIS.pipelines).to.have.lengthOf(1);
       const pipes = MOCK_REDIS.pipelines[0];
-      // Should not have tried to retrieve the null user at all.
       expect(pipes).to.be.an('array').and.have.lengthOf(USER_IDS.length - 1);
-      let userIndex = 0;
-      USER_IDS.forEach((id) => {
-        if (id) {
-          const user = userDetails[id];
-          expect(user).to.be.an('object');
-          expect(user.forename).to.be.a('string');
-          expect(user.surname).to.be.a('string');
-
-          expect(pipes[userIndex]).to.be.an('array')
-            .and.to.have.lengthOf(2)
-            .and.to.contain('get')
-            .and.to.contain(keys.user(id));
-          userIndex++;
-        }
+      const validIds = USER_IDS.filter(id => id);
+      verifyUserDetails(userDetails, validIds);
+      validIds.forEach((id, index) => {
+        expectPipelineContains(pipes[index], 'get', keys.user(id));
       });
     });
   });
@@ -236,25 +238,14 @@ describe('socket.service.activity-service', () => {
       expect(MOCK_REDIS.pipelines).to.have.lengthOf(1);
       const pipes = MOCK_REDIS.pipelines[0];
       expect(pipes).to.be.an('array').with.a.lengthOf(2);
-      // First one should be to remove the user activity.
-      expect(pipes[0]).to.be.an('array').with.a.lengthOf(3)
-        .and.to.contain('zrem')
-        .and.to.contain(keys.case.view(CASE_ID))
-        .and.to.contain(USER_ID);
-      // Second one should be to remove the socket entry.
-      expect(pipes[1]).to.be.an('array').with.a.lengthOf(2)
-        .and.to.contain('del')
-        .and.to.contain(keys.socket(SOCKET_ID));
-
-      // Should have also notified about the change.
+      expectPipelineContains(pipes[0], 'zrem', keys.case.view(CASE_ID), USER_ID);
+      expectPipelineContains(pipes[1], 'del', keys.socket(SOCKET_ID));
       expect(MOCK_REDIS.messages).to.have.lengthOf(1);
-      expect(MOCK_REDIS.messages[0].channel).to.equal(keys.case.base(CASE_ID));
-      const messageTS = parseInt(MOCK_REDIS.messages[0].message, 10);
-      expect(messageTS).to.be.approximately(NOW, 5); // Within 5ms.
+      expectNotificationSent(CASE_ID, NOW);
     });
     it('should handle a null socketId', async () => {
       await activityService.removeSocketActivity(null);
-      expect(MOCK_REDIS.pipelines).to.have.lengthOf(0); // Should have been no calls to redis.
+      expectNoPipelineCalls();
     });
   });
 
@@ -267,7 +258,6 @@ describe('socket.service.activity-service', () => {
     });
 
     afterEach(() => {
-      // completely restore all fakes created through the sandbox
       sandbox.restore();
     });
 
@@ -277,72 +267,43 @@ describe('socket.service.activity-service', () => {
       const SOCKET_ID = 'abcdef123456';
       await activityService.addActivity(CASE_ID, USER, SOCKET_ID, 'view');
       expect(MOCK_REDIS.pipelines).to.have.lengthOf(2);
-      const removePipes = MOCK_REDIS.pipelines[0];
-      expect(removePipes).to.be.an('array').with.a.lengthOf(2); // Remove
-
       const pipes = MOCK_REDIS.pipelines[1];
-      // First one should be to add the user activity.
-      expect(pipes[0]).to.be.an('array').with.a.lengthOf(4)
-        .and.to.contain('zadd')
-        .and.to.contain(keys.case.view(CASE_ID))
-        .and.to.contain(DATE_NOW + TTL_ACTIVITY * 1000) // TTL + NOW
-        .and.to.contain(USER_ID);
-      // Second one should be to add the socket entry.
-      expect(pipes[1]).to.be.an('array').with.a.lengthOf(5)
-        .and.to.contain('set')
-        .and.to.contain(keys.socket(SOCKET_ID))
-        .and.to.contain(`{"activityKey":"${keys.case.view(CASE_ID)}","caseId":"${CASE_ID}","userId":"${USER_ID}"}`)
-        .and.to.contain('EX')
-        .and.to.contain(TTL_USER);
-      // Third one should be to set the user details.
-      expect(pipes[2]).to.be.an('array').with.a.lengthOf(5)
-        .and.to.contain('set')
-        .and.to.contain(keys.user(USER_ID))
-        .and.to.contain(`{"id":"${USER_ID}","forename":"Joe","surname":"Bloggs"}`)
-        .and.to.contain('EX')
-        .and.to.contain(TTL_USER);
-
-      // Should have also notified about the change.
+      expectPipelineContains(pipes[0], 'zadd', keys.case.view(CASE_ID), DATE_NOW + TTL_ACTIVITY * 1000, USER_ID);
+      expectPipelineContains(pipes[1], 'set', keys.socket(SOCKET_ID), `{"activityKey":"${keys.case.view(CASE_ID)}","caseId":"${CASE_ID}","userId":"${USER_ID}"}`, 'EX', TTL_USER);
+      expectPipelineContains(pipes[2], 'set', keys.user(USER_ID), `{"id":"${USER_ID}","forename":"Joe","surname":"Bloggs"}`, 'EX', TTL_USER);
       expect(MOCK_REDIS.messages).to.have.lengthOf(1);
-      expect(MOCK_REDIS.messages[0].channel).to.equal(keys.case.base(CASE_ID));
-      const messageTS = parseInt(MOCK_REDIS.messages[0].message, 10);
-      expect(messageTS).to.be.approximately(NOW, 5); // Within 5ms.
+      expectNotificationSent(CASE_ID, NOW);
     });
     it('should notifications about both removed and added cases', async () => {
-      const NOW = Date.now();
       const USER = { uid: USER_ID, given_name: 'Joe', family_name: 'Bloggs' };
       const SOCKET_ID = 'abcdef123456';
       const NEW_CASE_ID = '0987654321';
       await activityService.addActivity(NEW_CASE_ID, USER, SOCKET_ID, 'view');
-
-      // Should have been two notifictions...
       expect(MOCK_REDIS.messages).to.have.lengthOf(2);
-      // ... firstly about the original case.
       expect(MOCK_REDIS.messages[0].channel).to.equal(keys.case.base(CASE_ID));
-      // ... and then about the new case.
       expect(MOCK_REDIS.messages[1].channel).to.equal(keys.case.base(NEW_CASE_ID));
     });
     it('should handle a null caseId', async () => {
       const USER = { uid: USER_ID };
       const SOCKET_ID = 'abcdef123456';
       await activityService.addActivity(null, USER, SOCKET_ID, 'view');
-      expect(MOCK_REDIS.pipelines).to.have.lengthOf(0); // Should have been no calls to redis.
+      expectNoPipelineCalls();
     });
     it('should handle a null user', async () => {
       const SOCKET_ID = 'abcdef123456';
       await activityService.addActivity(CASE_ID, null, SOCKET_ID, 'view');
-      expect(MOCK_REDIS.pipelines).to.have.lengthOf(0); // Should have been no calls to redis.
+      expectNoPipelineCalls();
     });
     it('should handle a null socketId', async () => {
       const USER = { uid: USER_ID };
       await activityService.addActivity(CASE_ID, USER, null, 'view');
-      expect(MOCK_REDIS.pipelines).to.have.lengthOf(0); // Should have been no calls to redis.
+      expectNoPipelineCalls();
     });
     it('should handle a null activity', async () => {
       const USER = { uid: USER_ID };
       const SOCKET_ID = 'abcdef123456';
       await activityService.addActivity(CASE_ID, USER, SOCKET_ID, null);
-      expect(MOCK_REDIS.pipelines).to.have.lengthOf(0); // Should have been no calls to redis.
+      expectNoPipelineCalls();
     });
   });
 
@@ -355,36 +316,39 @@ describe('socket.service.activity-service', () => {
     });
 
     afterEach(() => {
-      // completely restore all fakes created through the sandbox
       sandbox.restore();
     });
+
+    const verifyCaseActivity = (caseActivity, caseId) => {
+      expect(caseActivity).to.be.an('object');
+      expect(caseActivity.caseId).to.equal(caseId);
+      expect(caseActivity.viewers).to.be.an('array').with.a.lengthOf(1);
+      expect(caseActivity.viewers[0]).to.be.an('object');
+      expect(caseActivity.viewers[0].forename).to.equal(`Bob ${USER_ID.toUpperCase()}`);
+      expect(caseActivity.unknownViewers).to.equal(1);
+      expect(caseActivity.editors).to.be.an('array').with.a.lengthOf(1);
+      expect(caseActivity.editors[0]).to.be.an('object');
+      expect(caseActivity.unknownEditors).to.equal(1);
+      expect(caseActivity.editors[0].forename).to.equal(`Bob ${USER_ID.toUpperCase()}`);
+    };
 
     it('should appropriately get case activity', async () => {
       const CASE_IDS = ['1234567890','0987654321'];
       const result = await activityService.getActivityForCases(CASE_IDS);
       expect(result).to.be.an('array').with.a.lengthOf(CASE_IDS.length);
       CASE_IDS.forEach((id, index) => {
-        expect(result[index]).to.be.an('object');
-        expect(result[index].caseId).to.equal(id);
-        expect(result[index].viewers).to.be.an('array').with.a.lengthOf(1);
-        expect(result[index].viewers[0]).to.be.an('object');
-        expect(result[index].viewers[0].forename).to.equal(`Bob ${USER_ID.toUpperCase()}`);
-        expect(result[index].unknownViewers).to.equal(1); // 'MISSING' id.
-        expect(result[index].editors).to.be.an('array').with.a.lengthOf(1);
-        expect(result[index].editors[0]).to.be.an('object');
-        expect(result[index].unknownEditors).to.equal(1); // 'MISSING' id.
-        expect(result[index].editors[0].forename).to.equal(`Bob ${USER_ID.toUpperCase()}`);
+        verifyCaseActivity(result[index], id);
       });
     });
     it('should handle null caseIds', async () => {
       const result = await activityService.getActivityForCases(null);
       expect(result).to.be.an('array').with.a.lengthOf(0);
-      expect(MOCK_REDIS.pipelines).to.have.lengthOf(0); // Should have been no calls to redis.
+      expectNoPipelineCalls();
     });
     it('should handle empty caseIds', async () => {
       const result = await activityService.getActivityForCases([]);
       expect(result).to.be.an('array').with.a.lengthOf(0);
-      expect(MOCK_REDIS.pipelines).to.have.lengthOf(0); // Should have been no calls to redis.
+      expectNoPipelineCalls();
     });
   });
 

@@ -5,240 +5,190 @@ const utils = require('../../../../../app/socket/utils');
 describe('socket.utils', () => {
 
   describe('extractUniqueUserIds', () => {
+    const testExtractUniqueUserIds = (result, unique, expectedLength, ...expectedIds) => {
+      const IDS = utils.extractUniqueUserIds(result, unique);
+      let expectation = expect(IDS).to.be.an('array').that.has.lengthOf(expectedLength);
+      expectedIds.forEach(id => {
+        expectation = expectation.and.that.includes(id);
+      });
+    };
+
     it('should handle a null result', () => {
-      const RESULT = null;
-      const UNIQUE = ['a'];
-      const IDS = utils.extractUniqueUserIds(RESULT, UNIQUE);
-      expect(IDS).to.be.an('array')
-        .that.has.lengthOf(1)
-        .and.that.includes('a');
+      testExtractUniqueUserIds(null, ['a'], 1, 'a');
     });
+
     it('should handle a result of the wrong type', () => {
-      const RESULT = 'bob';
-      const UNIQUE = ['a'];
-      const IDS = utils.extractUniqueUserIds(RESULT, UNIQUE);
-      expect(IDS).to.be.an('array')
-        .that.has.lengthOf(1)
-        .and.that.includes('a');
+      testExtractUniqueUserIds('bob', ['a'], 1, 'a');
     });
+
     it('should handle a result with the wrong structure', () => {
-      const RESULT = [
-        ['bob'],
-        ['fred']
-      ];
-      const UNIQUE = ['a'];
-      const IDS = utils.extractUniqueUserIds(RESULT, UNIQUE);
-      expect(IDS).to.be.an('array')
-        .that.has.lengthOf(1)
-        .and.that.includes('a');
+      const RESULT = [['bob'], ['fred']];
+      testExtractUniqueUserIds(RESULT, ['a'], 1, 'a');
     });
+
     it('should handle a result containing nulls', () => {
-      const RESULT = [
-        ['bob', ['b']],
-        ['fred', null]
-      ];
-      const UNIQUE = ['a'];
-      const IDS = utils.extractUniqueUserIds(RESULT, UNIQUE);
-      expect(IDS).to.be.an('array')
-        .that.has.lengthOf(2)
-        .and.that.includes('a')
-        .and.that.includes('b');
+      const RESULT = [['bob', ['b']], ['fred', null]];
+      testExtractUniqueUserIds(RESULT, ['a'], 2, 'a', 'b');
     });
+
     it('should handle a result with the correct structure', () => {
-      const RESULT = [
-        ['bob', ['b', 'g']],
-        ['fred', ['f']]
-      ];
-      const UNIQUE = ['a'];
-      const IDS = utils.extractUniqueUserIds(RESULT, UNIQUE);
-      expect(IDS).to.be.an('array').that.has.lengthOf(4)
-        .and.that.includes('a')
-        .and.that.includes('b')
-        .and.that.includes('f')
-        .and.that.includes('g');
+      const RESULT = [['bob', ['b', 'g']], ['fred', ['f']]];
+      testExtractUniqueUserIds(RESULT, ['a'], 4, 'a', 'b', 'f', 'g');
     });
+
     it('should handle a result with the correct structure but a null original array', () => {
-      const RESULT = [
-        ['bob', ['b', 'g']],
-        ['fred', ['f']]
-      ];
-      const UNIQUE = null;
-      const IDS = utils.extractUniqueUserIds(RESULT, UNIQUE);
-      expect(IDS).to.be.an('array').that.has.lengthOf(3)
-        .and.that.includes('b')
-        .and.that.includes('f')
-        .and.that.includes('g');
+      const RESULT = [['bob', ['b', 'g']], ['fred', ['f']]];
+      testExtractUniqueUserIds(RESULT, null, 3, 'b', 'f', 'g');
     });
+
     it('should handle a result with the correct structure but an original array of the wrong type', () => {
-      const RESULT = [
-        ['bob', ['b', 'g']],
-        ['fred', ['f']]
-      ];
-      const UNIQUE = 'a';
-      const IDS = utils.extractUniqueUserIds(RESULT, UNIQUE);
-      expect(IDS).to.be.an('array').that.has.lengthOf(3)
-        .and.that.includes('b')
-        .and.that.includes('f')
-        .and.that.includes('g');
+      const RESULT = [['bob', ['b', 'g']], ['fred', ['f']]];
+      testExtractUniqueUserIds(RESULT, 'a', 3, 'b', 'f', 'g');
     });
+
     it('should strip out duplicates', () => {
-      const RESULT = [
-        ['bob', ['a', 'b', 'g']],
-        ['fred', ['f', 'b']]
-      ];
-      const UNIQUE = ['a'];
-      const IDS = utils.extractUniqueUserIds(RESULT, UNIQUE);
-      expect(IDS).to.be.an('array')
-        .and.that.includes('a')
-        .and.that.includes('b')
-        .and.that.includes('f')
-        .and.that.includes('g')
-        .but.that.has.lengthOf(4); // One of each, despite the RESULT containing an extra 'a', and 'b' twice.
+      const RESULT = [['bob', ['a', 'b', 'g']], ['fred', ['f', 'b']]];
+      testExtractUniqueUserIds(RESULT, ['a'], 4, 'a', 'b', 'f', 'g');
     });
   });
 
   describe('log', () => {
+    const testLog = (payload, expectedLength, validateLogs) => {
+      const logs = [];
+      const logTo = (str) => logs.push(str);
+      const SOCKET = { id: 'Are' };
+      const GROUP = 'you not';
+      utils.log(SOCKET, payload, GROUP, logTo);
+      expect(logs).to.have.lengthOf(expectedLength);
+      validateLogs(logs);
+    };
+
     it('should output string payload', () => {
-      const logs = [];
-      const logTo = (str) => {
-        logs.push(str);
-      };
-      const SOCKET = { id: 'Are' };
       const PAYLOAD = 'entertained?';
-      const GROUP = 'you not';
-      utils.log(SOCKET, PAYLOAD, GROUP, logTo);
-      expect(logs).to.have.lengthOf(1);
-      expect(logs[0]).to.include(`| Are | you not => entertained?`);
+      testLog(PAYLOAD, 1, (logs) => {
+        expect(logs[0]).to.include(`| Are | you not => entertained?`);
+      });
     });
+
     it('should output object payload', () => {
-      const logs = [];
-      const logTo = (str) => {
-        logs.push(str);
-      };
-      const SOCKET = { id: 'Are' };
       const PAYLOAD = { sufficiently: 'entertained?' };
-      const GROUP = 'you not';
-      utils.log(SOCKET, PAYLOAD, GROUP, logTo);
-      expect(logs).to.have.lengthOf(2);
-      expect(logs[0]).to.include(`| Are | you not`);
-      expect(logs[1]).to.equal(PAYLOAD);
+      testLog(PAYLOAD, 2, (logs) => {
+        expect(logs[0]).to.include(`| Are | you not`);
+        expect(logs[1]).to.equal(PAYLOAD);
+      });
     });
   });
 
   describe('score', () => {
-    it('should handle a string TTL', () => {
-      const TTL = '12';
-      const NOW = 55;
+    const NOW = 55;
+
+    const testScore = (ttl, expectedScore) => {
       sandbox.stub(Date, 'now').returns(NOW);
-      const score = utils.score(TTL);
-      expect(score).to.equal(12055); // (TTL * 1000) + NOW
-    });
-    it('should handle a numeric TTL', () => {
-      const TTL = 13;
-      const NOW = 55;
-      sandbox.stub(Date, 'now').returns(NOW);
-      const score = utils.score(TTL);
-      expect(score).to.equal(13055); // (TTL * 1000) + NOW
-    });
-    it('should handle a null TTL', () => {
-      const TTL = null;
-      const NOW = 55;
-      sandbox.stub(Date, 'now').returns(NOW);
-      const score = utils.score(TTL);
-      expect(score).to.equal(55); // null TTL => 0
-    });
+      const score = utils.score(ttl);
+      expect(score).to.equal(expectedScore);
+    };
 
     afterEach(() => {
-      // completely restore all fakes created through the sandbox
       sandbox.restore();
+    });
+
+    it('should handle a string TTL', () => {
+      testScore('12', 12055); // (TTL * 1000) + NOW
+    });
+
+    it('should handle a numeric TTL', () => {
+      testScore(13, 13055); // (TTL * 1000) + NOW
+    });
+
+    it('should handle a null TTL', () => {
+      testScore(null, 55); // null TTL => 0
     });
   });
 
   describe('toUser', () => {
+    const testToUser = (obj, expected) => {
+      const user = utils.toUser(obj);
+      Object.keys(expected).forEach(key => {
+        expect(user[key]).to.equal(expected[key]);
+      });
+    };
+
     it('should handle a null object', () => {
-      const OBJ = null;
-      const user = utils.toUser(OBJ);
-      expect(user).to.deep.equal({});
+      expect(utils.toUser(null)).to.deep.equal({});
     });
+
     it('should handle a valid object', () => {
       const OBJ = { id: 'bob', name: 'Bob Smith' };
-      const user = utils.toUser(OBJ);
-      expect(user.uid).to.equal(OBJ.id);
-      expect(user.name).to.equal(OBJ.name);
-      expect(user.given_name).to.equal('Bob');
-      expect(user.family_name).to.equal('Smith');
-      expect(user.sub).to.equal('Bob.Smith@mailinator.com');
+      testToUser(OBJ, {
+        uid: 'bob',
+        name: 'Bob Smith',
+        given_name: 'Bob',
+        family_name: 'Smith',
+        sub: 'Bob.Smith@mailinator.com'
+      });
     });
+
     it('should handle a valid object with a long name', () => {
       const OBJ = { id: 'ddl', name: 'Daniel Day Lewis' };
-      const user = utils.toUser(OBJ);
-      expect(user.uid).to.equal(OBJ.id);
-      expect(user.name).to.equal(OBJ.name);
-      expect(user.given_name).to.equal('Daniel');
-      expect(user.family_name).to.equal('Day Lewis');
-      expect(user.sub).to.equal('Daniel.Day-Lewis@mailinator.com');
+      testToUser(OBJ, {
+        uid: 'ddl',
+        name: 'Daniel Day Lewis',
+        given_name: 'Daniel',
+        family_name: 'Day Lewis',
+        sub: 'Daniel.Day-Lewis@mailinator.com'
+      });
     });
   });
 
   describe('toUserString', () => {
+    const testToUserString = (user, expected) => {
+      expect(utils.toUserString(user)).to.equal(expected);
+    };
+
     it('should handle a null user', () => {
-      expect(utils.toUserString(null)).to.equal('{}');
+      testToUserString(null, '{}');
     });
+
     it('should handle an undefined user', () => {
-      expect(utils.toUserString(undefined)).to.equal('{}');
+      testToUserString(undefined, '{}');
     });
+
     it('should handle an empty user', () => {
-      expect(utils.toUserString({})).to.equal('{}');
+      testToUserString({}, '{}');
     });
+
     it('should handle a full user', () => {
-      const USER = {
-        uid: '1234567890',
-        given_name: 'Bob',
-        family_name: 'Smith'
-      };
-      expect(utils.toUserString(USER)).to.equal('{"id":"1234567890","forename":"Bob","surname":"Smith"}');
+      const USER = { uid: '1234567890', given_name: 'Bob', family_name: 'Smith' };
+      testToUserString(USER, '{"id":"1234567890","forename":"Bob","surname":"Smith"}');
     });
+
     it('should handle a user with a missing family name', () => {
-      const USER = {
-        uid: '1234567890',
-        given_name: 'Bob'
-      };
-      expect(utils.toUserString(USER)).to.equal('{"id":"1234567890","forename":"Bob"}');
+      const USER = { uid: '1234567890', given_name: 'Bob' };
+      testToUserString(USER, '{"id":"1234567890","forename":"Bob"}');
     });
+
     it('should handle a user with a missing given name', () => {
-      const USER = {
-        uid: '1234567890',
-        family_name: 'Smith'
-      };
-      expect(utils.toUserString(USER)).to.equal('{"id":"1234567890","surname":"Smith"}');
+      const USER = { uid: '1234567890', family_name: 'Smith' };
+      testToUserString(USER, '{"id":"1234567890","surname":"Smith"}');
     });
+
     it('should handle a user with a missing name', () => {
-      const USER = {
-        uid: '1234567890'
-      };
-      expect(utils.toUserString(USER)).to.equal('{"id":"1234567890"}');
+      const USER = { uid: '1234567890' };
+      testToUserString(USER, '{"id":"1234567890"}');
     });
   });
 
-  describe('get', () => {
-    it('should be appropriately set up', () => {
-      expect(utils.get).to.equal(require('../../../../../app/socket/utils/get'));
+  const testModuleSetup = (moduleName, modulePath) => {
+    describe(moduleName, () => {
+      it('should be appropriately set up', () => {
+        expect(utils[moduleName]).to.equal(require(modulePath));
+      });
     });
-  });
-  describe('remove', () => {
-    it('should be appropriately set up', () => {
-      expect(utils.remove).to.equal(require('../../../../../app/socket/utils/remove'));
-    });
-  });
-  describe('store', () => {
-    it('should be appropriately set up', () => {
-      expect(utils.store).to.equal(require('../../../../../app/socket/utils/store'));
-    });
-  });
-  describe('watch', () => {
-    it('should be appropriately set up', () => {
-      expect(utils.watch).to.equal(require('../../../../../app/socket/utils/watch'));
-    });
-  });
+  };
+
+  testModuleSetup('get', '../../../../../app/socket/utils/get');
+  testModuleSetup('remove', '../../../../../app/socket/utils/remove');
+  testModuleSetup('store', '../../../../../app/socket/utils/store');
+  testModuleSetup('watch', '../../../../../app/socket/utils/watch');
 
 });
