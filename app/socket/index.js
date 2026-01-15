@@ -59,7 +59,7 @@ module.exports = (server, redis) => {
       const redisHost = config.get('redis.host');
 
       // HMCTS secret pattern → password is inside .value
-      const redisPwdObj = config.get('secrets.ccd.activity-redis-password');
+      const redisPwdObj = config.get('secrets.rpx.activity-redis-password');
       // const redisPwd = redisPwdObj?.value ?? redisPwdObj;   // supports both flat and nested
 
       const redisPwd = redisPwdObj && redisPwdObj.value

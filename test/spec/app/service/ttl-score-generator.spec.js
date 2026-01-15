@@ -1,4 +1,3 @@
-
 const expect = require('chai').expect;
 const config = require('config');
 const sandbox = require("sinon").createSandbox();

@@ -9,7 +9,7 @@ module.exports = (debug) => {
   const redis = new Redis({
     port: config.get('redis.port'),
     host: config.get('redis.host'),
-    password: config.get('secrets.ccd.activity-redis-password'),
+    password: config.get('secrets.rpx.activity-redis-password'),
     tls: config.get('redis.ssl'),
     keyPrefix: config.get('redis.keyPrefix'),
     // log unhandled redis errors
