@@ -71,11 +71,16 @@ module.exports = (server, redis) => {
         return;
       }
 
-      const redisUrl = redisPwd
-        ? `redis://:${encodeURIComponent(redisPwd)}@${redisHost}:${redisPort}`
-        : `redis://${redisHost}:${redisPort}`;
+      // Decide scheme based on TLS setting: demo (TLS) → rediss, preview (no TLS) → redis
+      const sslRaw = config.has('redis.ssl') ? config.get('redis.ssl') : false;
+      const useTLS = sslRaw === true || sslRaw === 'true' || sslRaw === 1 || sslRaw === '1';
+      const scheme = useTLS ? 'rediss' : 'redis';
 
-      console.log('[SOCKET.IO] Connecting to Redis at', redisUrl);
+      const redisUrl = redisPwd
+        ? `${scheme}://:${encodeURIComponent(redisPwd)}@${redisHost}:${redisPort}`
+        : `${scheme}://${redisHost}:${redisPort}`;
+
+      console.log('[SOCKET.IO] Connecting to Redis at', redisUrl, '(TLS:', useTLS, ')');
       const pubClient = createClient({ url: redisUrl });
       const subClient = pubClient.duplicate();
 
