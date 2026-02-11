@@ -81,7 +81,17 @@ module.exports = (server, redis) => {
         : `${scheme}://${redisHost}:${redisPort}`;
 
       console.log('[SOCKET.IO] Connecting to Redis at', redisUrl, '(TLS:', useTLS, ')');
-      const pubClient = createClient({ url: redisUrl });
+      // const pubClient = createClient({ url: redisUrl });
+
+      const redisOptions = {
+        url: redisUrl,
+        socket: {
+          connectTimeout: 15000,
+          tls: useTLS
+        }
+      };
+
+      const pubClient = createClient(redisOptions);
       const subClient = pubClient.duplicate();
 
       const attachErrorHandlers = (client, name) => {
