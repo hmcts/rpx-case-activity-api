@@ -95,4 +95,3 @@ $ yarn start
   rpx-case-activity-api:redis-client connected to Redis +7ms
 ```
 
-
