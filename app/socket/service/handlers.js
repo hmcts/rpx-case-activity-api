@@ -27,7 +27,10 @@ module.exports = (activityService, socketServer) => {
   async function notify(caseId) {
     const cs = await activityService.getActivityForCases([caseId]);
     console.log('notifying case activity: ', JSON.stringify(cs, null, 2));
-    socketServer.to(keys.case.base(caseId)).emit('activity', cs);
+    // With the Redis adapter enabled, each node receives the same case-change
+    // pub/sub signal. Emit locally so each connected client sees one message.
+    const emitter = socketServer.local || socketServer;
+    emitter.to(keys.case.base(caseId)).emit('activity', cs);
   }
 
   /**

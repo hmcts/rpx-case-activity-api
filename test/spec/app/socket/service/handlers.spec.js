@@ -44,6 +44,9 @@ describe('socket.service.handlers', () => {
           messageTo.message = message;
         }
       };
+    },
+    local: {
+      to: (room) => MOCK_SOCKET_SERVER.to(room)
     }
   };
   const MOCK_SOCKET = {
@@ -129,6 +132,19 @@ describe('socket.service.handlers', () => {
       expect(MOCK_SOCKET_SERVER.messagesTo[0].event).to.equal('activity');
       expect(MOCK_SOCKET_SERVER.messagesTo[0].message).to.be.an('array').and.to.have.lengthOf(1);
       expect(MOCK_SOCKET_SERVER.messagesTo[0].message[0].caseId).to.equal(CASE_ID);
+    });
+
+    it('should prefer local emitter when available', async () => {
+      const CASE_ID = '2222222222';
+      const localToCalls = [];
+      MOCK_SOCKET_SERVER.local.to = (room) => {
+        localToCalls.push(room);
+        return MOCK_SOCKET_SERVER.to(room);
+      };
+
+      await handlers.notify(CASE_ID);
+
+      expect(localToCalls).to.deep.equal([keys.case.base(CASE_ID)]);
     });
   });
 
