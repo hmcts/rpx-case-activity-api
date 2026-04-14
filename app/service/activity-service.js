@@ -1,6 +1,6 @@
 const debug = require('debug')('rpx-case-activity-api:activity-service');
 
-module.exports = (config, redis, ttlScoreGenerator) => {
+function createActivityService(config, redis, ttlScoreGenerator) {
   const redisActivityKeys = {
     view: (caseId) => `case:${caseId}:viewers`,
     edit: (caseId) => `case:${caseId}:editors`,
@@ -83,4 +83,6 @@ module.exports = (config, redis, ttlScoreGenerator) => {
       }));
   };
   return { addActivity, getActivities };
-};
+}
+
+module.exports = createActivityService;

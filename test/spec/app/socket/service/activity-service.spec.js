@@ -21,7 +21,7 @@ describe('socket.service.activity-service', () => {
   const expectNotificationSent = (caseId, approximateTime = Date.now(), tolerance = 5) => {
     const message = MOCK_REDIS.messages.find(m => m.channel === keys.case.base(caseId));
     expect(message).to.exist;
-    const messageTS = parseInt(message.message, 10);
+    const messageTS = Number.parseInt(message.message, 10);
     expect(messageTS).to.be.approximately(approximateTime, tolerance);
   };
 
@@ -59,7 +59,6 @@ describe('socket.service.activity-service', () => {
     },
     pipeline: (pipes) => {
       MOCK_REDIS.pipelines.push(pipes);
-      let result = null;
       let execResult = null;
       switch (MOCK_REDIS.pipelineMode) {
         case 'get':
@@ -84,7 +83,6 @@ describe('socket.service.activity-service', () => {
     },
     casePipeline: (pipes) => {
       return pipes.map((pipe) => {
-        // ['zrangebyscore', keys.case[activity](id), now, '+inf'];
         const id = pipe[1].replace(`${keys.prefixes.case}:`, '');
         return [null, [USER_ID, 'MISSING']];
       });

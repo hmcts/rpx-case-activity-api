@@ -21,7 +21,7 @@ const router = require('./router');
  * TODO:
  *   * Some sort of auth / get the credentials when the user connects.
  */
-module.exports = (server, redis) => {
+function createSocketServer(server, redis) {
   console.log('Setting up socket server');
   const activityService = ActivityService(config, redis);
 
@@ -35,19 +35,6 @@ module.exports = (server, redis) => {
     },
   });
 
-  // const socketServer = SocketIO(server, {
-  //   allowEIO3: true,
-  //   transports: ['websocket', 'polling'],
-  //   cors: {
-  //     origin: [
-  //       'https://manage-case-int1.demo.platform.hmcts.net',
-  //       'http://localhost:3000'
-  //     ],
-  //     methods: ['GET', 'POST'],
-  //     credentials: true
-  //   },
-  // });
-
   //
   // ---------------------------------------------------------
   // ENABLE REDIS ADAPTER (Fixes “Session ID unknown”)
@@ -58,13 +45,9 @@ module.exports = (server, redis) => {
       const redisPort = config.get('redis.port');
       const redisHost = config.get('redis.host');
 
-      // HMCTS secret pattern → password is inside .value
+      // HMCTS secret pattern supports both nested { value } and flat string values.
       const redisPwdObj = config.get('secrets.rpx.activity-redis-password');
-      // const redisPwd = redisPwdObj?.value ?? redisPwdObj;   // supports both flat and nested
-
-      const redisPwd = redisPwdObj && redisPwdObj.value
-        ? redisPwdObj.value
-        : redisPwdObj;
+      const redisPwd = redisPwdObj?.value ?? redisPwdObj;
 
       if (!redisHost || !redisPort) {
         console.warn('[SOCKET.IO] redis.host/redis.port missing — Redis adapter not enabled');
@@ -81,7 +64,6 @@ module.exports = (server, redis) => {
         : `${scheme}://${redisHost}:${redisPort}`;
 
       console.log('[SOCKET.IO] Connecting to Redis at', redisUrl, '(TLS:', useTLS, ')');
-      // const pubClient = createClient({ url: redisUrl });
 
       const redisOptions = {
         url: redisUrl,
@@ -96,7 +78,7 @@ module.exports = (server, redis) => {
 
       const attachErrorHandlers = (client, name) => {
         client.on('error', (err) => {
-          console.log(`[SOCKET.IO][REDIS][${name}] redis client error:`, err && err.message ? err.message : err);
+          console.log(`[SOCKET.IO][REDIS][${name}] redis client error:`, err?.message ?? err);
         });
         client.on('connect', () => {
           console.log(`[SOCKET.IO][REDIS][${name}] connected`);
@@ -158,7 +140,9 @@ module.exports = (server, redis) => {
     console.log('Socket connected:', s.id, 'transport:', s.conn.transport.name);
   });
   socketServer.on('error', (err) => {
-    console.log('[SOCKET.IO] server error:', err && err.message ? err.message : err);
+    console.log('[SOCKET.IO] server error:', err?.message ?? err);
   });
   return { socketServer, activityService, handlers };
-};
+}
+
+module.exports = createSocketServer;

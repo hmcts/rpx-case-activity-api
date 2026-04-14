@@ -1,7 +1,7 @@
 const keys = require('../redis/keys');
 const utils = require('../utils');
 
-module.exports = (config, redis) => {
+function createSocketActivityService(config, redis) {
   const ttl = {
     user: config.get('redis.socket.userDetailsTtlSec'),
     activity: config.get('redis.socket.activityTtlSec')
@@ -41,32 +41,6 @@ module.exports = (config, redis) => {
     }
     return {};
   };
-
-  // const doRemoveSocketActivity = async (socketId) => {
-  //   // First make sure we actually have some activity to remove.
-  //   const activity = await getSocketActivity(socketId);
-  //   if (activity) {
-  //     await redis.pipeline([
-  //       utils.remove.userActivity(activity),
-  //       utils.remove.socketEntry(socketId)
-  //     ]).exec();
-  //     return activity.caseId;
-  //   }
-  //   return null;
-  // };
-
-  //  const doRemoveUserActivity = async (socketId) => {
-  //   // First make sure we actually have some activity to remove.
-  //   const activity = await getSocketActivity(socketId);
-
-  //   if (activity) {
-  //     await redis.pipeline([
-  //       utils.remove.userActivity(activity),
-  //     ]).exec();
-  //     return activity.caseId;
-  //   }
-  //   return null;
-  // };
 
   const doRemoveActivity = async (socketId, removeSocketEntry = false) => {
     console.log('Removing activity for socketId ', socketId, ' removeSocketEntry=', removeSocketEntry);
@@ -186,4 +160,6 @@ module.exports = (config, redis) => {
     ttl,
     removeUserActivity
   };
-};
+}
+
+module.exports = createSocketActivityService;

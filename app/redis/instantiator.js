@@ -5,7 +5,7 @@ const ERROR = 0;
 const RESULT = 1;
 const ENV = config.util.getEnv('NODE_ENV');
 
-module.exports = (debug) => {
+function instantiateRedis(debug) {
   const redis = new Redis({
     port: config.get('redis.port'),
     host: config.get('redis.host'),
@@ -43,4 +43,6 @@ module.exports = (debug) => {
     });
 
   return redis;
-};
+}
+
+module.exports = instantiateRedis;

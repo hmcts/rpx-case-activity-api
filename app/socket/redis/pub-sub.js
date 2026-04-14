@@ -1,15 +1,23 @@
 const keys = require('./keys');
 
-module.exports = () => {
+function handlePatternMessage(_, room, caseNotifier) {
+  const caseId = room.replace(`${keys.prefixes.case}:`, '');
+  caseNotifier(caseId);
+}
+
+function init(watcher, caseNotifier) {
+  if (watcher && typeof caseNotifier === 'function') {
+    watcher.psubscribe(`${keys.prefixes.case}:*`);
+    watcher.on('pmessage', function onPatternMessage(_, room) {
+      handlePatternMessage(_, room, caseNotifier);
+    });
+  }
+}
+
+function createPubSub() {
   return {
-    init: (watcher, caseNotifier) => {
-      if (watcher && typeof caseNotifier === 'function') {
-        watcher.psubscribe(`${keys.prefixes.case}:*`);
-        watcher.on('pmessage', (_, room) => {
-          const caseId = room.replace(`${keys.prefixes.case}:`, '');
-          caseNotifier(caseId);
-        });
-      }
-    }
+    init
   };
-};
+}
+
+module.exports = createPubSub;

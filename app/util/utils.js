@@ -9,7 +9,7 @@ exports.ifNotTimedOut = (request, f) => {
 };
 
 exports.normalizePort = (val) => {
-  const port = parseInt(val, 10);
+  const port = Number.parseInt(val, 10);
   if (Number.isNaN(port)) {
     // named pipe
     return val;
