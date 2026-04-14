@@ -33,7 +33,7 @@ const other = {
   },
   score: (ttlStr) => {
     const now = Date.now();
-    const ttl = parseInt(ttlStr, 10) || 0;
+    const ttl = Number.parseInt(ttlStr, 10) || 0;
     const score = now + (ttl * 1000);
     debug(`generated score out of current timestamp '${now}' plus ${ttl} sec`);
     return score;
