@@ -47,7 +47,9 @@ function createSocketServer(server, redis) {
 
       // HMCTS secret pattern supports both nested { value } and flat string values.
       const redisPwdObj = config.get('secrets.rpx.activity-redis-password');
-      const redisPwd = redisPwdObj?.value ?? redisPwdObj;
+      const redisPwd = redisPwdObj && redisPwdObj.value
+        ? redisPwdObj.value
+        : redisPwdObj;
 
       if (!redisHost || !redisPort) {
         console.warn('[SOCKET.IO] redis.host/redis.port missing — Redis adapter not enabled');
@@ -78,7 +80,7 @@ function createSocketServer(server, redis) {
 
       const attachErrorHandlers = (client, name) => {
         client.on('error', (err) => {
-          console.log(`[SOCKET.IO][REDIS][${name}] redis client error:`, err?.message ?? err);
+          console.log(`[SOCKET.IO][REDIS][${name}] redis client error:`, err && err.message ? err.message : err);
         });
         client.on('connect', () => {
           console.log(`[SOCKET.IO][REDIS][${name}] connected`);
@@ -140,7 +142,7 @@ function createSocketServer(server, redis) {
     console.log('Socket connected:', s.id, 'transport:', s.conn.transport.name);
   });
   socketServer.on('error', (err) => {
-    console.log('[SOCKET.IO] server error:', err?.message ?? err);
+    console.log('[SOCKET.IO] server error:', err && err.message ? err.message : err);
   });
   return { socketServer, activityService, handlers };
 }

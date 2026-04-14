@@ -8,7 +8,7 @@ function handlePatternMessage(_, room, caseNotifier) {
 function init(watcher, caseNotifier) {
   if (watcher && typeof caseNotifier === 'function') {
     watcher.psubscribe(`${keys.prefixes.case}:*`);
-    watcher.on('pmessage', function onPatternMessage(_, room) {
+    watcher.on('pmessage', (_, room) => {
       handlePatternMessage(_, room, caseNotifier);
     });
   }

@@ -5,7 +5,7 @@ const other = {
     const userIds = Array.isArray(uniqueUserIds) ? [...uniqueUserIds] : [];
     if (Array.isArray(result)) {
       result.forEach((item) => {
-        if (item?.[1]) {
+        if (item && item[1]) {
           const users = item[1];
           users.forEach((userId) => {
             if (!userIds.includes(userId)) {
@@ -33,7 +33,7 @@ const other = {
   },
   score: (ttlStr) => {
     const now = Date.now();
-    const ttl = Number.parseInt(ttlStr, 10) || 0;
+    const ttl = parseInt(ttlStr, 10) || 0;
     const score = now + (ttl * 1000);
     debug(`generated score out of current timestamp '${now}' plus ${ttl} sec`);
     return score;
