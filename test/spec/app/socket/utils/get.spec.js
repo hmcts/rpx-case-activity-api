@@ -97,7 +97,7 @@ describe('socket.utils', () => {
 
       it('should handle a null user ID', () => {
         const USER_IDS = ['1', '8', null, 'x'];
-        const validIds = USER_IDS.filter(id => id);
+        const validIds = USER_IDS.filter(Boolean);
         const pipes = get.users(USER_IDS);
         expectUserPipes(pipes, validIds);
       });

@@ -215,7 +215,7 @@ describe('socket.service.activity-service', () => {
       expect(MOCK_REDIS.pipelines).to.have.lengthOf(1);
       const pipes = MOCK_REDIS.pipelines[0];
       expect(pipes).to.be.an('array').and.have.lengthOf(USER_IDS.length - 1);
-      const validIds = USER_IDS.filter(id => id);
+      const validIds = USER_IDS.filter(Boolean);
       verifyUserDetails(userDetails, validIds);
       validIds.forEach((id, index) => {
         expectPipelineContains(pipes[index], 'get', keys.user(id));

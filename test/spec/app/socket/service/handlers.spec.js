@@ -30,7 +30,6 @@ describe('socket.service.handlers', () => {
     removeSocketActivity: async (socketId) => {
       const params = { socketId };
       MOCK_ACTIVITY_SERVICE.calls.push({ method: 'removeSocketActivity', params });
-      return;
     }
   };
   const MOCK_SOCKET_SERVER = {
