@@ -82,8 +82,7 @@ describe('socket.service.activity-service', () => {
       };
     },
     casePipeline: (pipes) => {
-      return pipes.map((pipe) => {
-        const id = pipe[1].replace(`${keys.prefixes.case}:`, '');
+      return pipes.map(() => {
         return [null, [USER_ID, 'MISSING']];
       });
     },
