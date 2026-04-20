@@ -17,7 +17,7 @@ redis:
     enabled: true
     password: "fake-password"
   image:
-    registry: hmctssbox.azurecr.io
+    registry: hmctsprod.azurecr.io
     repository: imported/bitnami/redis
     
   global:
