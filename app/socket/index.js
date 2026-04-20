@@ -139,6 +139,7 @@ function createSocketServer(server, redis) {
   //
   // log connections and errors
   socketServer.on('connection', (s) => {
+    // Socket Connected
     console.log('Socket connected:', s.id, 'transport:', s.conn.transport.name);
   });
   socketServer.on('error', (err) => {
