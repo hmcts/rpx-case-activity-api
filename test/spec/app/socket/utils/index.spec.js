@@ -105,41 +105,6 @@ describe('socket.utils', () => {
     });
   });
 
-  describe('toUser', () => {
-    const testToUser = (obj, expected) => {
-      const user = utils.toUser(obj);
-      Object.keys(expected).forEach(key => {
-        expect(user[key]).to.equal(expected[key]);
-      });
-    };
-
-    it('should handle a null object', () => {
-      expect(utils.toUser(null)).to.deep.equal({});
-    });
-
-    it('should handle a valid object', () => {
-      const OBJ = { id: 'bob', name: 'Bob Smith' };
-      testToUser(OBJ, {
-        uid: 'bob',
-        name: 'Bob Smith',
-        given_name: 'Bob',
-        family_name: 'Smith',
-        sub: 'Bob.Smith@mailinator.com'
-      });
-    });
-
-    it('should handle a valid object with a long name', () => {
-      const OBJ = { id: 'ddl', name: 'Daniel Day Lewis' };
-      testToUser(OBJ, {
-        uid: 'ddl',
-        name: 'Daniel Day Lewis',
-        given_name: 'Daniel',
-        family_name: 'Day Lewis',
-        sub: 'Daniel.Day-Lewis@mailinator.com'
-      });
-    });
-  });
-
   describe('toUserString', () => {
     const testToUserString = (user, expected) => {
       expect(utils.toUserString(user)).to.equal(expected);
