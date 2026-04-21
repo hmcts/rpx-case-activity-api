@@ -5,7 +5,7 @@ const other = {
     const userIds = Array.isArray(uniqueUserIds) ? [...uniqueUserIds] : [];
     if (Array.isArray(result)) {
       result.forEach((item) => {
-        if (item && item[1]) {
+        if (item?.[1]) {
           const users = item[1];
           users.forEach((userId) => {
             if (!userIds.includes(userId)) {
@@ -37,29 +37,6 @@ const other = {
     const score = now + (ttl * 1000);
     debug(`generated score out of current timestamp '${now}' plus ${ttl} sec`);
     return score;
-  },
-  toUser: (obj) => {
-    // TODO: REMOVE THIS
-    // This is here purely until we have proper auth coming from a client.
-    if (!obj) {
-      return {};
-    }
-    const name = obj.name || `${obj.forename} ${obj.surname}`;
-    const nameParts = name.split(' ');
-    const givenName = obj.forename || nameParts.shift();
-    const familyName = obj.surname || nameParts.join(' ');
-    return {
-      sub: `${givenName}.${nameParts.join('-')}@mailinator.com`,
-      uid: obj.id,
-      roles: [
-        'caseworker-employment',
-        'caseworker-employment-leeds',
-        'caseworker'
-      ],
-      name,
-      given_name: givenName,
-      family_name: familyName
-    };
   },
   toUserString: (user) => {
     return user ? JSON.stringify({

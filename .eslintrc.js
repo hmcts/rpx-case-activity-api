@@ -4,6 +4,9 @@ module.exports = {
     "mocha": true,
     "jasmine": true
   },
+  "parserOptions": {
+    "ecmaVersion": 2020
+  },
   "rules": {
     "comma-dangle": 0,
     "arrow-body-style": 0,
