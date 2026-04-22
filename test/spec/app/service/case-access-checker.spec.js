@@ -19,7 +19,7 @@ describe('case access checker', () => {
       get: sinon.stub(),
     };
     config.get.withArgs('rpx.case_access_check_enabled').returns(true);
-    config.get.withArgs('rpx.base_url').returns('http://ccd.local');
+    config.get.withArgs('rpx.base_url').returns('https://ccd.local');
 
     caseAccessChecker = proxyquire('../../../../app/service/case-access-checker', {
       '../util/fetch': fetch,
@@ -30,12 +30,12 @@ describe('case access checker', () => {
     await caseAccessChecker.assertUserHasAccess(['111', '222', '111'], 'Bearer token');
 
     expect(fetch).to.have.been.calledTwice;
-    expect(fetch.firstCall).to.have.been.calledWith('http://ccd.local/cases/111', {
+    expect(fetch.firstCall).to.have.been.calledWith('https://ccd.local/cases/111', {
       headers: {
         Authorization: 'Bearer token',
       },
     });
-    expect(fetch.secondCall).to.have.been.calledWith('http://ccd.local/cases/222', {
+    expect(fetch.secondCall).to.have.been.calledWith('https://ccd.local/cases/222', {
       headers: {
         Authorization: 'Bearer token',
       },
@@ -69,7 +69,7 @@ describe('case access checker', () => {
       get: sinon.stub(),
     };
     config.get.withArgs('rpx.case_access_check_enabled').returns(false);
-    config.get.withArgs('rpx.base_url').returns('http://ccd.local');
+    config.get.withArgs('rpx.base_url').returns('https://ccd.local');
     caseAccessChecker = proxyquire('../../../../app/service/case-access-checker', {
       '../util/fetch': fetch,
     })(config);
