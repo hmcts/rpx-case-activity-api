@@ -13,7 +13,8 @@ const corsHandler = require('./app/security/cors');
 
 const redis = require('./app/redis/redis-client');
 const ttlScoreGenerator = require('./app/service/ttl-score-generator');
-const activityService = require('./app/service/activity-service')(config, redis, ttlScoreGenerator);
+const caseAccessChecker = require('./app/service/case-access-checker')(config);
+const activityService = require('./app/service/activity-service')(config, redis, ttlScoreGenerator, caseAccessChecker);
 const activity = require('./app/routes/activity-route')(activityService, config);
 
 const app = express();

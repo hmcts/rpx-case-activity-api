@@ -5,6 +5,9 @@ security:
   auth_blacklist: AUTH_BLACK_LIST
 idam:
   base_url: IDAM_BASE_URL
+rpx:
+  base_url: RPX_BASE_URL
+  case_access_check_enabled: RPX_CASE_ACCESS_CHECK_ENABLED
 redis:
   host: REDIS_HOST
   port: REDIS_PORT

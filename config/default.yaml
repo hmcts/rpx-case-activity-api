@@ -5,6 +5,9 @@ security:
   auth_blacklist: "solicitor"
 idam:
   base_url: http://localhost:5000
+rpx:
+  base_url: http://localhost:4000
+  case_access_check_enabled: true
 redis:
   host: localhost
   port: 6379

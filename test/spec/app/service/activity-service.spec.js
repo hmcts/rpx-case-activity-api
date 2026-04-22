@@ -9,8 +9,16 @@ chai.should();
 var expect = chai.expect;
 chai.use(sinonChai);
 var sandbox = sinon.createSandbox();
+var caseAccessChecker;
 
 describe("activity service", () => {
+
+  beforeEach(function () {
+    caseAccessChecker = {
+      assertUserHasAccess: sandbox.stub().returns(Promise.resolve())
+    };
+    activityService = require('../../../../app/service/activity-service')(config, redis, ttlScoreGenerator, caseAccessChecker);
+  });
 
   afterEach(function () {
     // completely restore all fakes created through the sandbox
@@ -24,21 +32,22 @@ describe("activity service", () => {
   const TIMESTAMP = 40;
   let pipStub;
 
-  it("addActivity should create a redis pipeline with the correct redis commands for edit", () => {
+  it("addActivity should create a redis pipeline with the correct redis commands for edit", async () => {
     pipStub = sinon.stub();
     pipStub.exec = () => "result";
     sandbox.stub(redis, 'pipeline').returns(pipStub);
     sandbox.stub(ttlScoreGenerator, 'getScore').returns(SCORE);
     sandbox.stub(config, 'get').returns(USER_DETAILS_TTL);
 
-    const result = activityService.addActivity(CASE_ID, { uid: USER_ID }, 'edit');
+    const result = await activityService.addActivity(CASE_ID, { uid: USER_ID }, 'edit');
 
+    expect(caseAccessChecker.assertUserHasAccess).to.have.been.calledWith([CASE_ID], undefined);
     expect(redis.pipeline).to.have.been.calledWith([['zadd', `case:${CASE_ID}:editors`, SCORE, USER_ID], ['set', `user:${USER_ID}`, '{}', 'EX', USER_DETAILS_TTL]]);
     expect(config.get).to.have.been.calledWith('redis.userDetailsTtlSec');
     expect(result).to.equal("result");
   });
 
-  it("addActivity should create a redis pipeline with the correct redis commands for view", () => {
+  it("addActivity should create a redis pipeline with the correct redis commands for view", async () => {
     pipStub = sinon.stub();
     pipStub.exec = () => "result";
     sandbox.stub(redis, 'pipeline').returns(pipStub);
@@ -46,10 +55,25 @@ describe("activity service", () => {
 
     sandbox.stub(config, 'get').returns(USER_DETAILS_TTL);
 
-    const result = activityService.addActivity(CASE_ID, { uid: USER_ID }, 'view')
+    const result = await activityService.addActivity(CASE_ID, { uid: USER_ID }, 'view');
+    expect(caseAccessChecker.assertUserHasAccess).to.have.been.calledWith([CASE_ID], undefined);
     expect(redis.pipeline).to.have.been.calledWith([['zadd', `case:${CASE_ID}:viewers`, SCORE, USER_ID], ['set', `user:${USER_ID}`, '{}', 'EX', USER_DETAILS_TTL]]);
     expect(config.get).to.have.been.calledWith('redis.userDetailsTtlSec');
-    expect(result).to.equal("result")
+    expect(result).to.equal("result");
+  });
+
+  it("addActivity should reject when case access check fails", async () => {
+    const accessError = { status: 403, message: 'denied' };
+    caseAccessChecker.assertUserHasAccess.returns(Promise.reject(accessError));
+    sandbox.spy(redis, 'pipeline');
+
+    try {
+      await activityService.addActivity(CASE_ID, { uid: USER_ID }, 'view', 'Bearer token');
+      throw new Error('expected addActivity to reject');
+    } catch (error) {
+      expect(error).to.equal(accessError);
+      expect(redis.pipeline).not.to.have.been.called;
+    }
   });
 
   it("getActivities should create a redis pipeline with the correct redis commands for getViewers", (done) => {
@@ -192,5 +216,19 @@ describe("activity service", () => {
       }]);
       done();
     }).catch(err => console.log('error', done(err)));
-  })
+  });
+
+  it("getActivities should reject when case access check fails", async () => {
+    const accessError = { status: 403, message: 'denied' };
+    caseAccessChecker.assertUserHasAccess.returns(Promise.reject(accessError));
+    sandbox.spy(redis, 'pipeline');
+
+    try {
+      await activityService.getActivities(['767'], { uid: '242' }, 'Bearer token');
+      throw new Error('expected getActivities to reject');
+    } catch (error) {
+      expect(error).to.equal(accessError);
+      expect(redis.pipeline).not.to.have.been.called;
+    }
+  });
 });

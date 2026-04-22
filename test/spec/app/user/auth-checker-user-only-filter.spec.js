@@ -20,7 +20,8 @@ describe('authCheckerUserOnlyFilter', () => {
 
   beforeEach(() => {
     req = {
-      headers: {}
+      headers: {},
+      get: sinon.stub().withArgs('Authorization').returns('Bearer token')
     };
     res = {};
 
@@ -48,6 +49,7 @@ describe('authCheckerUserOnlyFilter', () => {
     it('should set authenticated user in request', done => {
       filter(req, res, () => {
         expect(req.authentication.user).to.equal(user);
+        expect(req.authentication.token).to.equal('Bearer token');
         done();
       });
     });
