@@ -14,6 +14,29 @@ function createActivityService(
     view: (caseId) => `case:${caseId}:viewers`,
     edit: (caseId) => `case:${caseId}:editors`,
   };
+  const getUserDetails = (uniqueUserIds) => redis.pipeline(
+    uniqueUserIds.map((userId) => ['get', `user:${userId}`])
+  ).exec();
+
+  const extractUniqueUserIds = (result, uniqueUserIds) => {
+    result.forEach((item) => {
+      item[1].forEach((userId) => {
+        if (!uniqueUserIds.includes(userId)) {
+          uniqueUserIds.push(userId);
+        }
+      });
+    });
+  };
+
+  const getActivityUsers = (activityResult, user, userDetails, uniqueUserIds) => {
+    if (!activityResult) {
+      return [];
+    }
+
+    return activityResult
+      .filter((element) => element !== user.uid.toString())
+      .map((item) => JSON.parse(userDetails[uniqueUserIds.indexOf(item)][1]));
+  };
 
   const addActivity = (caseId, user, activity, authorization) => (
     caseAccessChecker.assertUserHasAccess([caseId], authorization)
@@ -41,68 +64,40 @@ function createActivityService(
       })
   );
 
-  const getActivities = (caseIds, user, authorization) => (
-    caseAccessChecker.assertUserHasAccess(caseIds, authorization)
-      .then(() => {
-        const uniqueUserIds = [];
-        let caseViewers = [];
-        let caseEditors = [];
-        const now = Date.now();
-        const getUserDetails = () => redis.pipeline(
-          uniqueUserIds.map((userId) => ['get', `user:${userId}`])
-        ).exec();
-        const extractUniqueUserIds = (result) => {
-          result.forEach((item) => {
-            item[1].forEach((userId) => {
-              if (!uniqueUserIds.includes(userId)) {
-                uniqueUserIds.push(userId);
-              }
-            });
-          });
-        };
-        const caseViewersPromise = redis
-          .pipeline(caseIds.map((caseId) => ['zrangebyscore', `case:${caseId}:viewers`, now, '+inf']))
-          .exec()
-          .then((result) => {
-            redis.logPipelineFailures(result, 'caseViewersPromise');
-            caseViewers = result;
-            extractUniqueUserIds(result);
-          });
-        const caseEditorsPromise = redis
-          .pipeline(caseIds.map((caseId) => ['zrangebyscore', `case:${caseId}:editors`, now, '+inf']))
-          .exec()
-          .then((result) => {
-            redis.logPipelineFailures(result, 'caseEditorsPromise');
-            caseEditors = result;
-            extractUniqueUserIds(result);
-          });
+  const getActivities = async (caseIds, user, authorization) => {
+    await caseAccessChecker.assertUserHasAccess(caseIds, authorization);
 
-        return Promise.all([caseViewersPromise, caseEditorsPromise])
-          .then(() => getUserDetails())
-          .then((userDetails) => caseIds.map((elem, index) => {
-            redis.logPipelineFailures(userDetails, 'userDetails');
-            const caseStatus = {};
-            caseStatus.caseId = elem;
-            caseStatus.viewers = caseViewers[index][1] ? caseViewers[index][1]
-              .filter((element) => element !== user.uid.toString())
-              .map((item) => JSON.parse(userDetails[uniqueUserIds.indexOf(item)][1]))
-              .filter((item) => item) : [];
-            caseStatus.unknownViewers = caseViewers[index][1] ? caseViewers[index][1]
-              .filter((element) => element !== user.uid.toString())
-              .map((item) => JSON.parse(userDetails[uniqueUserIds.indexOf(item)][1]))
-              .reduce((sum, el) => (!el ? sum + 1 : sum), 0) : [];
-            caseStatus.editors = caseEditors[index][1] ? caseEditors[index][1]
-              .filter((element) => element !== user.uid.toString())
-              .map((item) => JSON.parse(userDetails[uniqueUserIds.indexOf(item)][1]))
-              .filter((item) => item) : [];
-            caseStatus.unknownEditors = caseEditors[index][1] ? caseEditors[index][1]
-              .filter((element) => element !== user.uid.toString())
-              .map((item) => JSON.parse(userDetails[uniqueUserIds.indexOf(item)][1]))
-              .reduce((sum, el) => (!el ? sum + 1 : sum), 0) : [];
-            return caseStatus;
-          }));
-      })
-  );
+    const uniqueUserIds = [];
+    const now = Date.now();
+    const [caseViewers, caseEditors] = await Promise.all([
+      redis.pipeline(
+        caseIds.map((caseId) => ['zrangebyscore', `case:${caseId}:viewers`, now, '+inf'])
+      ).exec(),
+      redis.pipeline(
+        caseIds.map((caseId) => ['zrangebyscore', `case:${caseId}:editors`, now, '+inf'])
+      ).exec(),
+    ]);
+
+    redis.logPipelineFailures(caseViewers, 'caseViewersPromise');
+    extractUniqueUserIds(caseViewers, uniqueUserIds);
+    redis.logPipelineFailures(caseEditors, 'caseEditorsPromise');
+    extractUniqueUserIds(caseEditors, uniqueUserIds);
+    const userDetails = await getUserDetails(uniqueUserIds);
+    redis.logPipelineFailures(userDetails, 'userDetails');
+
+    return caseIds.map((elem, index) => {
+      const viewers = getActivityUsers(caseViewers[index][1], user, userDetails, uniqueUserIds);
+      const editors = getActivityUsers(caseEditors[index][1], user, userDetails, uniqueUserIds);
+
+      return {
+        caseId: elem,
+        viewers: viewers.filter((item) => item),
+        unknownViewers: viewers.reduce((sum, el) => (!el ? sum + 1 : sum), 0),
+        editors: editors.filter((item) => item),
+        unknownEditors: editors.reduce((sum, el) => (!el ? sum + 1 : sum), 0),
+      };
+    });
+  };
 
   return { addActivity, getActivities };
 }

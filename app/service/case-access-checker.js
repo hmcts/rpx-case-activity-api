@@ -12,6 +12,8 @@ const CCD_UNAVAILABLE_ERROR = {
   message: 'Unable to verify case access',
 };
 
+const toError = (errorDetails) => Object.assign(new Error(errorDetails.message), errorDetails);
+
 function createCaseAccessChecker(config) {
   const isEnabled = () => !config.has('rpx.case_access_check_enabled')
     || config.get('rpx.case_access_check_enabled');
@@ -33,7 +35,7 @@ function createCaseAccessChecker(config) {
 
     return {
       ...CCD_UNAVAILABLE_ERROR,
-      details: error && error.message ? error.message : undefined,
+      details: error?.message,
     };
   };
 
@@ -43,7 +45,7 @@ function createCaseAccessChecker(config) {
     }
 
     if (!authorization) {
-      return Promise.reject(ACCESS_DENIED_ERROR);
+      return Promise.reject(toError(ACCESS_DENIED_ERROR));
     }
 
     const uniqueCaseIds = [...new Set(caseIds.filter((caseId) => !!caseId))];
@@ -53,7 +55,9 @@ function createCaseAccessChecker(config) {
       headers: {
         Authorization: authorization,
       },
-    }))).catch((error) => Promise.reject(mapError(error)));
+    }))).catch((error) => {
+      throw toError(mapError(error));
+    });
   };
 
   return {

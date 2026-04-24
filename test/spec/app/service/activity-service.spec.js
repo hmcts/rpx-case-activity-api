@@ -1,17 +1,18 @@
-var redis = require('../../../../app/redis/redis-client');
-var config = require('config');
-var ttlScoreGenerator = require('../../../../app/service/ttl-score-generator');
-var activityService = require('../../../../app/service/activity-service')(config, redis, ttlScoreGenerator);
-var chai = require("chai");
-var sinon = require("sinon");
-var sinonChai = require("sinon-chai");
+const redis = require('../../../../app/redis/redis-client');
+const config = require('config');
+const ttlScoreGenerator = require('../../../../app/service/ttl-score-generator');
+let activityService = require('../../../../app/service/activity-service')(config, redis, ttlScoreGenerator);
+const chai = require("chai");
+const sinon = require("sinon");
+const sinonChai = require("sinon-chai");
 chai.should();
-var expect = chai.expect;
+const expect = chai.expect;
 chai.use(sinonChai);
-var sandbox = sinon.createSandbox();
-var caseAccessChecker;
+const sandbox = sinon.createSandbox();
+let caseAccessChecker;
 
 describe("activity service", () => {
+  const createAccessError = () => Object.assign(new Error('denied'), { status: 403 });
 
   beforeEach(function () {
     caseAccessChecker = {
@@ -63,7 +64,7 @@ describe("activity service", () => {
   });
 
   it("addActivity should reject when case access check fails", async () => {
-    const accessError = { status: 403, message: 'denied' };
+    const accessError = createAccessError();
     caseAccessChecker.assertUserHasAccess.returns(Promise.reject(accessError));
     sandbox.spy(redis, 'pipeline');
 
@@ -219,7 +220,7 @@ describe("activity service", () => {
   });
 
   it("getActivities should reject when case access check fails", async () => {
-    const accessError = { status: 403, message: 'denied' };
+    const accessError = createAccessError();
     caseAccessChecker.assertUserHasAccess.returns(Promise.reject(accessError));
     sandbox.spy(redis, 'pipeline');
 

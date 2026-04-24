@@ -47,7 +47,8 @@ describe('case access checker', () => {
       await caseAccessChecker.assertUserHasAccess(['111'], null);
       throw new Error('expected access check to fail');
     } catch (error) {
-      expect(error).to.deep.equal(caseAccessChecker.ACCESS_DENIED_ERROR);
+      expect(error).to.be.instanceOf(Error);
+      expect(error).to.include(caseAccessChecker.ACCESS_DENIED_ERROR);
     }
   });
 
@@ -58,7 +59,8 @@ describe('case access checker', () => {
       await caseAccessChecker.assertUserHasAccess(['111'], 'Bearer token');
       throw new Error('expected access check to fail');
     } catch (error) {
-      expect(error).to.deep.equal(caseAccessChecker.ACCESS_DENIED_ERROR);
+      expect(error).to.be.instanceOf(Error);
+      expect(error).to.include(caseAccessChecker.ACCESS_DENIED_ERROR);
     }
   });
 
