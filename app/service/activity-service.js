@@ -91,10 +91,16 @@ function createActivityService(
 
       return {
         caseId: elem,
-        viewers: viewers.filter((item) => item),
-        unknownViewers: viewers.reduce((sum, el) => (!el ? sum + 1 : sum), 0),
-        editors: editors.filter((item) => item),
-        unknownEditors: editors.reduce((sum, el) => (!el ? sum + 1 : sum), 0),
+        viewers: viewers.filter(Boolean),
+        unknownViewers: viewers.reduce(
+          (sum, el) => sum + Number(el === null || el === undefined),
+          0
+        ),
+        editors: editors.filter(Boolean),
+        unknownEditors: editors.reduce(
+          (sum, el) => sum + Number(el === null || el === undefined),
+          0
+        ),
       };
     });
   };

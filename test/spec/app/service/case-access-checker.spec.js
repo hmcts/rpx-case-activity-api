@@ -53,7 +53,7 @@ describe('case access checker', () => {
   });
 
   it('should reject with forbidden when CCD denies access', async () => {
-    fetch.returns(Promise.reject({ status: 403 }));
+    fetch.returns(Promise.reject(Object.assign(new Error('forbidden'), { status: 403 })));
 
     try {
       await caseAccessChecker.assertUserHasAccess(['111'], 'Bearer token');
