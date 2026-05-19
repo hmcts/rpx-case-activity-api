@@ -71,6 +71,21 @@ function createSocketHandlers(activityService, socketServer) {
     await activityService.removeUserActivity(socket.id);
   }
 
+  async function stopAll(socket, caseIds) {
+    if (Array.isArray(caseIds) && caseIds.length > 0) {
+      caseIds.forEach((caseId) => {
+        if (caseId) {
+          socket.leave(keys.case.base(caseId));
+        }
+      });
+    } else {
+      utils.watch.stop(socket);
+    }
+
+    // Remove the activity for this socket.
+    await activityService.removeUserActivity(socket.id);
+  }
+
   return {
     activityService,
     addActivity,
@@ -78,7 +93,8 @@ function createSocketHandlers(activityService, socketServer) {
     removeSocketActivity,
     socketServer,
     watch,
-    stop
+    stop,
+    stopAll
   };
 }
 

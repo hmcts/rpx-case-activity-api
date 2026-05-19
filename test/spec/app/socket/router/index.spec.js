@@ -33,6 +33,14 @@ describe('socket.router', () => {
       const params = { socket, caseIds };
       MOCK_HANDLERS.calls.push({ method: 'watch', params });
     },
+    stop: (socket, caseId, user, activity) => {
+      const params = { socket, caseId, user, activity };
+      MOCK_HANDLERS.calls.push({ method: 'stop', params });
+    },
+    stopAll: (socket, caseIds) => {
+      const params = { socket, caseIds };
+      MOCK_HANDLERS.calls.push({ method: 'stopAll', params });
+    },
     removeSocketActivity: async (socketId) => {
       const params = { socketId };
       MOCK_HANDLERS.calls.push({ method: 'removeSocketActivity', params });
@@ -99,7 +107,7 @@ describe('socket.router', () => {
       });
     });
     it('should have set up the appropriate events on the io router', () => {
-      const EXPECTED_EVENTS = ['view', 'edit', 'watch'];
+      const EXPECTED_EVENTS = ['view', 'edit', 'watch', 'stop', 'stopAll'];
       EXPECTED_EVENTS.forEach((event) => {
         expect(MOCK_IO_ROUTER.events[event]).to.be.a('function');
       });
@@ -129,6 +137,8 @@ describe('socket.router', () => {
           expect(MOCK_HANDLERS.calls[0].params.activity).to.equal(activity);
         } else if (expectedMethod === 'watch') {
           expect(MOCK_HANDLERS.calls[0].params.caseIds).to.deep.equal(expectedContext.request.caseIds);
+        } else if (expectedMethod === 'stopAll') {
+          expect(MOCK_HANDLERS.calls[0].params.caseIds).to.deep.equal(expectedContext.request.caseIds);
         }
       });
       expect(nextCalled).to.be.true;
@@ -152,6 +162,9 @@ describe('socket.router', () => {
     });
     it('should appropriately handle watching cases', () => {
       testActivityHandler('watch', 'watch');
+    });
+    it('should appropriately handle stopping all cases', () => {
+      testActivityHandler('stopAll', 'stopAll');
     });
   });
 

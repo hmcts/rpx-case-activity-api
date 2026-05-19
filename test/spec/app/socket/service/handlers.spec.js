@@ -30,6 +30,10 @@ describe('socket.service.handlers', () => {
     removeSocketActivity: async (socketId) => {
       const params = { socketId };
       MOCK_ACTIVITY_SERVICE.calls.push({ method: 'removeSocketActivity', params });
+    },
+    removeUserActivity: async (socketId) => {
+      const params = { socketId };
+      MOCK_ACTIVITY_SERVICE.calls.push({ method: 'removeUserActivity', params });
     }
   };
   const MOCK_SOCKET_SERVER = {
@@ -195,6 +199,29 @@ describe('socket.service.handlers', () => {
         expect(MOCK_SOCKET.messages[0].message[index].caseId).to.equal(caseId);
       })
     })
+  });
+
+  describe('stopAll', () => {
+    it('should stop watching the specified cases and remove user activity', async () => {
+      const CASE_IDS = ['0987654321', '9876543210', '8765432109'];
+
+      CASE_IDS.forEach((caseId) => {
+        MOCK_SOCKET.join(keys.case.base(caseId));
+      });
+      expect(MOCK_SOCKET.rooms).to.have.lengthOf(CASE_IDS.length + 1);
+
+      await handlers.stopAll(MOCK_SOCKET, CASE_IDS);
+
+      expect(MOCK_SOCKET.rooms).to.have.lengthOf(1)
+        .and.to.include(MOCK_SOCKET.id);
+      CASE_IDS.forEach((caseId) => {
+        expect(MOCK_SOCKET.rooms).not.to.include(keys.case.base(caseId));
+      });
+
+      expect(MOCK_ACTIVITY_SERVICE.calls).to.have.lengthOf(1);
+      expect(MOCK_ACTIVITY_SERVICE.calls[0].method).to.equal('removeUserActivity');
+      expect(MOCK_ACTIVITY_SERVICE.calls[0].params.socketId).to.equal(MOCK_SOCKET.id);
+    });
   });
 
 
