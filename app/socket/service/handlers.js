@@ -71,6 +71,9 @@ function createSocketHandlers(activityService, socketServer) {
   async function stop(socket, caseId) {
     // Stop watching the current cases.
     console.log('Stop watching cases to ', caseId, ' for socket ', socket.id);
+    if (caseId) {
+      socket.leave(keys.case.base(caseId));
+    }
 
     // Remove the activity and socket entry so a following watch does not
     // publish a second stale single-case activity update.

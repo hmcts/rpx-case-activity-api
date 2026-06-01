@@ -245,11 +245,19 @@ describe('socket.service.handlers', () => {
   });
 
   describe('stop', () => {
-    it('should remove socket activity and socket entry for the socket', async () => {
+    it('should stop watching the specified case and remove socket activity', async () => {
       const CASE_ID = '1234567890';
+      const OTHER_CASE_ID = '0987654321';
+
+      MOCK_SOCKET.join(keys.case.base(CASE_ID));
+      MOCK_SOCKET.join(keys.case.base(OTHER_CASE_ID));
+      expect(MOCK_SOCKET.rooms).to.include(keys.case.base(CASE_ID));
+      expect(MOCK_SOCKET.rooms).to.include(keys.case.base(OTHER_CASE_ID));
 
       await handlers.stop(MOCK_SOCKET, CASE_ID);
 
+      expect(MOCK_SOCKET.rooms).not.to.include(keys.case.base(CASE_ID));
+      expect(MOCK_SOCKET.rooms).to.include(keys.case.base(OTHER_CASE_ID));
       expect(MOCK_ACTIVITY_SERVICE.calls).to.have.lengthOf(1);
       expect(MOCK_ACTIVITY_SERVICE.calls[0].method).to.equal('removeSocketActivity');
       expect(MOCK_ACTIVITY_SERVICE.calls[0].params.socketId).to.equal(MOCK_SOCKET.id);
