@@ -21,8 +21,17 @@ describe('socket.service.activity-service', () => {
   const expectNotificationSent = (caseId, approximateTime = Date.now(), tolerance = 5) => {
     const message = MOCK_REDIS.messages.find(m => m.channel === keys.case.base(caseId));
     expect(message).to.exist;
-    const messageTS = Number.parseInt(message.message, 10);
+    let messageTS = Number.parseInt(message.message, 10);
+    if (Number.isNaN(messageTS)) {
+      messageTS = JSON.parse(message.message).timestamp;
+    }
     expect(messageTS).to.be.approximately(approximateTime, tolerance);
+  };
+
+  const expectNotificationExcludesSocket = (caseId, socketId) => {
+    const message = MOCK_REDIS.messages.find(m => m.channel === keys.case.base(caseId));
+    expect(message).to.exist;
+    expect(JSON.parse(message.message).excludedSocketId).to.equal(socketId);
   };
 
   const USER_ID = 'a';
@@ -239,6 +248,7 @@ describe('socket.service.activity-service', () => {
       expectPipelineContains(pipes[1], 'del', keys.socket(SOCKET_ID));
       expect(MOCK_REDIS.messages).to.have.lengthOf(1);
       expectNotificationSent(CASE_ID, NOW);
+      expectNotificationExcludesSocket(CASE_ID, SOCKET_ID);
     });
     it('should handle a null socketId', async () => {
       await activityService.removeSocketActivity(null);
@@ -279,6 +289,7 @@ describe('socket.service.activity-service', () => {
       expect(MOCK_REDIS.messages).to.have.lengthOf(2);
       expect(MOCK_REDIS.messages[0].channel).to.equal(keys.case.base(CASE_ID));
       expect(MOCK_REDIS.messages[1].channel).to.equal(keys.case.base(NEW_CASE_ID));
+      expectNotificationExcludesSocket(CASE_ID, SOCKET_ID);
     });
     it('should handle a null caseId', async () => {
       const USER = { uid: USER_ID };

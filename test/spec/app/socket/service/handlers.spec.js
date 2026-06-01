@@ -42,6 +42,15 @@ describe('socket.service.handlers', () => {
       const messageTo = { room }
       MOCK_SOCKET_SERVER.messagesTo.push(messageTo);
       return {
+        except: (socketId) => {
+          messageTo.excludedSocketId = socketId;
+          return {
+            emit: (event, message) => {
+              messageTo.event = event;
+              messageTo.message = message;
+            }
+          };
+        },
         emit: (event, message) => {
           messageTo.event = event;
           messageTo.message = message;
@@ -137,6 +146,17 @@ describe('socket.service.handlers', () => {
       expect(MOCK_SOCKET_SERVER.messagesTo[0].message[0].caseId).to.equal(CASE_ID);
     });
 
+    it('should exclude the source socket when requested', async () => {
+      const CASE_ID = '1234567890';
+      const SOCKET_ID = 'socket-id';
+      await handlers.notify(CASE_ID, { excludedSocketId: SOCKET_ID });
+
+      expect(MOCK_SOCKET_SERVER.messagesTo).to.have.lengthOf(1);
+      expect(MOCK_SOCKET_SERVER.messagesTo[0].room).to.equal(keys.case.base(CASE_ID));
+      expect(MOCK_SOCKET_SERVER.messagesTo[0].excludedSocketId).to.equal(SOCKET_ID);
+      expect(MOCK_SOCKET_SERVER.messagesTo[0].event).to.equal('activity');
+    });
+
     it('should prefer local emitter when available', async () => {
       const CASE_ID = '2222222222';
       const localToCalls = [];
@@ -220,6 +240,18 @@ describe('socket.service.handlers', () => {
 
       expect(MOCK_ACTIVITY_SERVICE.calls).to.have.lengthOf(1);
       expect(MOCK_ACTIVITY_SERVICE.calls[0].method).to.equal('removeUserActivity');
+      expect(MOCK_ACTIVITY_SERVICE.calls[0].params.socketId).to.equal(MOCK_SOCKET.id);
+    });
+  });
+
+  describe('stop', () => {
+    it('should remove socket activity and socket entry for the socket', async () => {
+      const CASE_ID = '1234567890';
+
+      await handlers.stop(MOCK_SOCKET, CASE_ID);
+
+      expect(MOCK_ACTIVITY_SERVICE.calls).to.have.lengthOf(1);
+      expect(MOCK_ACTIVITY_SERVICE.calls[0].method).to.equal('removeSocketActivity');
       expect(MOCK_ACTIVITY_SERVICE.calls[0].params.socketId).to.equal(MOCK_SOCKET.id);
     });
   });

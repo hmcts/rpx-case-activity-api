@@ -24,13 +24,18 @@ function createSocketHandlers(activityService, socketServer) {
    * @param {*} caseId The id of the case that has activity and that people should be
    * notified about.
    */
-  async function notify(caseId) {
+  async function notify(caseId, options = {}) {
     const cs = await activityService.getActivityForCases([caseId]);
-    console.log('notifying case activity: ', JSON.stringify(cs, null, 2));
+    console.log('notifying case activity: ', JSON.stringify(cs));
+    // console.log('notifying case activity: ', JSON.stringify(cs, null, 2));
     // With the Redis adapter enabled, each node receives the same case-change
     // pub/sub signal. Emit locally so each connected client sees one message.
     const emitter = socketServer.local || socketServer;
-    emitter.to(keys.case.base(caseId)).emit('activity', cs);
+    const roomEmitter = emitter.to(keys.case.base(caseId));
+    const targetEmitter = options.excludedSocketId && typeof roomEmitter.except === 'function'
+      ? roomEmitter.except(options.excludedSocketId)
+      : roomEmitter;
+    targetEmitter.emit('activity', cs);
   }
 
   /**
@@ -67,8 +72,9 @@ function createSocketHandlers(activityService, socketServer) {
     // Stop watching the current cases.
     console.log('Stop watching cases to ', caseId, ' for socket ', socket.id);
 
-    // Remove the activity for this socket.
-    await activityService.removeUserActivity(socket.id);
+    // Remove the activity and socket entry so a following watch does not
+    // publish a second stale single-case activity update.
+    await activityService.removeSocketActivity(socket.id);
   }
 
   async function stopAll(socket, caseIds) {

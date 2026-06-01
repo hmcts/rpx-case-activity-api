@@ -7,10 +7,13 @@ function createSocketActivityService(config, redis) {
     activity: config.get('redis.socket.activityTtlSec')
   };
 
-  const notifyChange = (caseId) => {
+  const notifyChange = (caseId, excludedSocketId) => {
     console.log('Notifying change for caseId ', caseId);
     if (caseId) {
-      redis.publish(keys.case.base(caseId), Date.now().toString());
+      const message = excludedSocketId
+        ? JSON.stringify({ timestamp: Date.now(), excludedSocketId })
+        : Date.now().toString();
+      redis.publish(keys.case.base(caseId), message);
     }
   };
 
@@ -64,14 +67,14 @@ function createSocketActivityService(config, redis) {
   const removeSocketActivity = async (socketId) => {
     const removedCaseId = await doRemoveSocketActivity(socketId);
     if (removedCaseId) {
-      notifyChange(removedCaseId);
+      notifyChange(removedCaseId, socketId);
     }
   };
 
   const removeUserActivity = async (socketId) => {
     const removedCaseId = await doRemoveUserActivity(socketId);
     if (removedCaseId) {
-      notifyChange(removedCaseId);
+      notifyChange(removedCaseId, socketId);
     }
   };
 
@@ -94,7 +97,7 @@ function createSocketActivityService(config, redis) {
       // Now store this activity.
       await doAddActivity(caseId, user, socketId, activity);
       if (removedCaseId !== caseId) {
-        notifyChange(removedCaseId);
+        notifyChange(removedCaseId, socketId);
       }
       notifyChange(caseId);
     }

@@ -23,8 +23,8 @@ describe('socket.redis.pub-sub', () => {
   };
   const MOCK_NOTIFIER = {
     messages: [],
-    notify: (message) => {
-      MOCK_NOTIFIER.messages.push(message);
+    notify: (caseId, options) => {
+      MOCK_NOTIFIER.messages.push({ caseId, options });
     }
   };
 
@@ -58,7 +58,17 @@ describe('socket.redis.pub-sub', () => {
       expect(MOCK_NOTIFIER.messages).to.have.lengthOf(0);
       MOCK_SUBSCRIBER.dispatch('pmessage', `${keys.prefixes.case}:${CASE_ID}`, new Date().toISOString());
       expect(MOCK_NOTIFIER.messages).to.have.lengthOf(1);
-      expect(MOCK_NOTIFIER.messages[0]).to.equal(CASE_ID);
+      expect(MOCK_NOTIFIER.messages[0].caseId).to.equal(CASE_ID);
+      expect(MOCK_NOTIFIER.messages[0].options).to.deep.equal({});
+    });
+    it('should pass notification options from the redis message', () => {
+      pubSub.init(MOCK_SUBSCRIBER, MOCK_NOTIFIER.notify);
+      const CASE_ID = '1234567890';
+      const MESSAGE = JSON.stringify({ excludedSocketId: 'socket-id' });
+      MOCK_SUBSCRIBER.dispatch('pmessage', `${keys.prefixes.case}:${CASE_ID}`, MESSAGE);
+      expect(MOCK_NOTIFIER.messages).to.have.lengthOf(1);
+      expect(MOCK_NOTIFIER.messages[0].caseId).to.equal(CASE_ID);
+      expect(MOCK_NOTIFIER.messages[0].options).to.deep.equal({ excludedSocketId: 'socket-id' });
     });
   });
 

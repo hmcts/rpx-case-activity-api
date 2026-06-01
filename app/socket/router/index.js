@@ -4,6 +4,20 @@ const utils = require('../utils');
 const logger = Logger.getLogger('index-socket-router');
 const users = {};
 const connections = [];
+
+function runHandler(handler, next) {
+  try {
+    const result = handler();
+    if (result && typeof result.then === 'function') {
+      return result.then(() => next()).catch(next);
+    }
+    next();
+  } catch (e) {
+    next(e);
+  }
+  return null;
+}
+
 const router = {
   addUser: (socketId, user) => {
     if (user && !user.name) {
@@ -35,32 +49,27 @@ const router = {
     iorouter.on('view', (socket, ctx, next) => {
       const user = router.getUser(socket.id);
       utils.log(socket, `${ctx.request.caseId} (${user.name})`, 'view');
-      handlers.addActivity(socket, ctx.request.caseId, user, 'view');
-      next();
+      return runHandler(() => handlers.addActivity(socket, ctx.request.caseId, user, 'view'), next);
     });
     iorouter.on('edit', (socket, ctx, next) => {
       const user = router.getUser(socket.id);
       utils.log(socket, `${ctx.request.caseId} (${user.name})`, 'edit');
-      handlers.addActivity(socket, ctx.request.caseId, user, 'edit');
-      next();
+      return runHandler(() => handlers.addActivity(socket, ctx.request.caseId, user, 'edit'), next);
     });
     iorouter.on('watch', (socket, ctx, next) => {
       const user = router.getUser(socket.id);
       utils.log(socket, `${ctx.request.caseIds} (${user.name})`, 'watch');
-      handlers.watch(socket, ctx.request.caseIds);
-      next();
+      return runHandler(() => handlers.watch(socket, ctx.request.caseIds), next);
     });
     iorouter.on('stop', (socket, ctx, next) => {
       const user = router.getUser(socket.id);
       utils.log(socket, `${ctx.request.caseId} (${user.name})`, 'stop');
-      handlers.stop(socket, ctx.request.caseId, user, 'stop');
-      next();
+      return runHandler(() => handlers.stop(socket, ctx.request.caseId, user, 'stop'), next);
     });
     iorouter.on('stopAll', (socket, ctx, next) => {
       const user = router.getUser(socket.id);
       utils.log(socket, `${ctx.request.caseIds} (${user.name})`, 'stopAll');
-      handlers.stopAll(socket, ctx.request.caseIds);
-      next();
+      return runHandler(() => handlers.stopAll(socket, ctx.request.caseIds), next);
     });
 
     // On client connection, attach the router and track the socket.

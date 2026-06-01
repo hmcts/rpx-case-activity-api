@@ -10,8 +10,9 @@ describe('socket.router', () => {
     dispatch: function(event, ...args) {
       const handler = this.events[event];
       if (handler) {
-        handler(...args);
+        return handler(...args);
       }
+      return null;
     }
   });
 
@@ -25,6 +26,7 @@ describe('socket.router', () => {
   };
   const MOCK_HANDLERS = {
     calls: [],
+    stopPromise: null,
     addActivity: (socket, caseId, user, activity) => {
       const params = { socket, caseId, user, activity };
       MOCK_HANDLERS.calls.push({ method: 'addActivity', params });
@@ -36,6 +38,7 @@ describe('socket.router', () => {
     stop: (socket, caseId, user, activity) => {
       const params = { socket, caseId, user, activity };
       MOCK_HANDLERS.calls.push({ method: 'stop', params });
+      return MOCK_HANDLERS.stopPromise;
     },
     stopAll: (socket, caseIds) => {
       const params = { socket, caseIds };
@@ -94,6 +97,7 @@ describe('socket.router', () => {
     MOCK_IO_ROUTER.events = {};
     MOCK_IO_ROUTER.attachments.length = 0;
     MOCK_HANDLERS.calls.length = 0;
+    MOCK_HANDLERS.stopPromise = null;
     MOCK_SOCKET.using.length = 0;
     router.removeUser(MOCK_SOCKET.id);
     router.removeConnection(MOCK_SOCKET);
@@ -139,6 +143,10 @@ describe('socket.router', () => {
           expect(MOCK_HANDLERS.calls[0].params.caseIds).to.deep.equal(expectedContext.request.caseIds);
         } else if (expectedMethod === 'stopAll') {
           expect(MOCK_HANDLERS.calls[0].params.caseIds).to.deep.equal(expectedContext.request.caseIds);
+        } else if (expectedMethod === 'stop') {
+          expect(MOCK_HANDLERS.calls[0].params.caseId).to.equal(expectedContext.request.caseId);
+          expect(MOCK_HANDLERS.calls[0].params.user).to.deep.equal(MOCK_JSON_USER);
+          expect(MOCK_HANDLERS.calls[0].params.activity).to.equal(activity);
         }
       });
       expect(nextCalled).to.be.true;
@@ -163,8 +171,27 @@ describe('socket.router', () => {
     it('should appropriately handle watching cases', () => {
       testActivityHandler('watch', 'watch');
     });
+    it('should appropriately handle stopping activity', () => {
+      testActivityHandler('stop', 'stop');
+    });
     it('should appropriately handle stopping all cases', () => {
       testActivityHandler('stopAll', 'stopAll');
+    });
+    it('should wait for async stop handling before continuing', async () => {
+      let resolveStop;
+      MOCK_HANDLERS.stopPromise = new Promise((resolve) => {
+        resolveStop = resolve;
+      });
+      let nextCalled = false;
+
+      const dispatchPromise = MOCK_IO_ROUTER.dispatch('stop', MOCK_SOCKET, MOCK_CONTEXT, () => {
+        nextCalled = true;
+      });
+
+      expect(nextCalled).to.be.false;
+      resolveStop();
+      await dispatchPromise;
+      expect(nextCalled).to.be.true;
     });
   });
 
