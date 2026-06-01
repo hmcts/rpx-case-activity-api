@@ -28,5 +28,16 @@ describe('socket', () => {
     expect(socket.handlers.activityService).to.equal(socket.activityService);
     expect(socket.handlers.socketServer).to.equal(socket.socketServer);
     expect(MOCK_REDIS.duplicated).to.be.true;
-  })
+  });
+
+  it('should configure Redis adapter clients to retry every 5-10 seconds', () => {
+    const redisOptions = Socket.buildRedisAdapterOptions('rediss://localhost:6380', true);
+
+    expect(redisOptions.url).to.equal('rediss://localhost:6380');
+    expect(redisOptions.socket.connectTimeout).to.equal(15000);
+    expect(redisOptions.socket.tls).to.be.true;
+    expect(redisOptions.socket.reconnectStrategy(1)).to.equal(5000);
+    expect(redisOptions.socket.reconnectStrategy(6)).to.equal(10000);
+    expect(redisOptions.socket.reconnectStrategy(100)).to.equal(10000);
+  });
 });

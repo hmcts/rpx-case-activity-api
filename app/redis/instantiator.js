@@ -1,5 +1,6 @@
 const config = require('config');
 const Redis = require('ioredis');
+const { redisReconnectDelay } = require('./reconnect-strategy');
 
 const ERROR = 0;
 const RESULT = 1;
@@ -12,6 +13,8 @@ function instantiateRedis(debug) {
     password: config.get('secrets.rpx.activity-redis-password'),
     tls: config.get('redis.ssl'),
     keyPrefix: config.get('redis.keyPrefix'),
+    // Retry lost Redis connections periodically using the shared bounded delay.
+    retryStrategy: redisReconnectDelay,
     // log unhandled redis errors
     showFriendlyErrorStack: ENV === 'test' || ENV === 'dev',
   });

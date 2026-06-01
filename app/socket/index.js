@@ -9,6 +9,19 @@ const ActivityService = require('./service/activity-service');
 const Handlers = require('./service/handlers');
 const pubSub = require('./redis/pub-sub')();
 const router = require('./router');
+const { redisReconnectDelay } = require('../redis/reconnect-strategy');
+
+function buildRedisAdapterOptions(redisUrl, useTLS) {
+  return {
+    url: redisUrl,
+    socket: {
+      connectTimeout: 15000,
+      tls: useTLS,
+      // Retry lost Socket.IO Redis adapter connections with the same bounded delay.
+      reconnectStrategy: redisReconnectDelay
+    }
+  };
+}
 
 /**
  * Sets up a series of routes for a "socket" endpoint, that
@@ -63,13 +76,7 @@ function createSocketServer(server, redis) {
 
       console.log('[SOCKET.IO] Connecting to Redis at', redisUrl, '(TLS:', useTLS, ')');
 
-      const redisOptions = {
-        url: redisUrl,
-        socket: {
-          connectTimeout: 15000,
-          tls: useTLS
-        }
-      };
+      const redisOptions = buildRedisAdapterOptions(redisUrl, useTLS);
 
       const pubClient = createClient(redisOptions);
       const subClient = pubClient.duplicate();
@@ -145,3 +152,4 @@ function createSocketServer(server, redis) {
 }
 
 module.exports = createSocketServer;
+module.exports.buildRedisAdapterOptions = buildRedisAdapterOptions;

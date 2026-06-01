@@ -14,6 +14,9 @@ redis:
   password: REDIS_PASSWORD
   ssl: REDIS_SSL_ENABLED
   keyPrefix: REDIS_KEY_PREFIX
+  reconnect:
+    minDelayMs: REDIS_RECONNECT_MIN_DELAY_MS
+    maxDelayMs: REDIS_RECONNECT_MAX_DELAY_MS
   activityTtlSec: REDIS_ACTIVITY_TTL
   userDetailsTtlSec: REDIS_USER_DETAILS_TTL
   socket:

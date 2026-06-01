@@ -13,6 +13,9 @@ redis:
   port: 6379
   ssl: false
   keyPrefix: "activity:"
+  reconnect:
+    minDelayMs: 5000
+    maxDelayMs: 10000
   activityTtlSec: 5
   userDetailsTtlSec: 2
   socket:
