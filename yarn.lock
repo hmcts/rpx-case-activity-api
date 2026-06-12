@@ -1510,7 +1510,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"connect-timeout@npm:^1.9.0":
+"connect-timeout@npm:^1.9.1":
   version: 1.9.1
   resolution: "connect-timeout@npm:1.9.1"
   dependencies:
@@ -4366,16 +4366,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"morgan@npm:^1.9.1":
-  version: 1.10.1
-  resolution: "morgan@npm:1.10.1"
+"morgan@npm:^1.10.1":
+  version: 1.11.0
+  resolution: "morgan@npm:1.11.0"
   dependencies:
     basic-auth: "npm:~2.0.1"
     debug: "npm:2.6.9"
     depd: "npm:~2.0.0"
-    on-finished: "npm:~2.3.0"
+    on-finished: "npm:~2.4.1"
     on-headers: "npm:~1.1.0"
-  checksum: 10/f6a611bdcb9bebe8283381c49efedee81f50b75f6cbc52430cda1743ec35443c92d5e5d4384ce38b102d8c102162c92da563471def3cf840b4980160f278f8ba
+  checksum: 10/d6e72d98ccaab1eb191f9455b224711b626e235e7ace217060b3d44e23a3cdc4ba6d9097b30e9195728ef86ecd53589685f211b8acb4c16dbf958fa787bc5ec0
   languageName: node
   linkType: hard
 
@@ -4460,7 +4460,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"node-cache@npm:^5.1.0":
+"node-cache@npm:^5.1.2":
   version: 5.1.2
   resolution: "node-cache@npm:5.1.2"
   dependencies:
@@ -4728,7 +4728,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"on-finished@npm:2.4.1, on-finished@npm:^2.3.0, on-finished@npm:^2.4.1":
+"on-finished@npm:2.4.1, on-finished@npm:^2.3.0, on-finished@npm:^2.4.1, on-finished@npm:~2.4.1":
   version: 2.4.1
   resolution: "on-finished@npm:2.4.1"
   dependencies:
@@ -5368,7 +5368,7 @@ __metadata:
     chai-arrays: "npm:^2.0.0"
     chai-http: "npm:^4.0.0"
     config: "npm:^1.26.1"
-    connect-timeout: "npm:^1.9.0"
+    connect-timeout: "npm:^1.9.1"
     cookie: "npm:^0.7.0"
     cross-env: "npm:^5.2.0"
     debug: "npm:~2.6.3"
@@ -5384,10 +5384,10 @@ __metadata:
     mocha: "npm:7"
     mock-require: "npm:^3.0.3"
     moment: "npm:^2.29.4"
-    morgan: "npm:^1.9.1"
+    morgan: "npm:^1.10.1"
     nocache: "npm:^2.1.0"
     nock: "npm:^12.0.3"
-    node-cache: "npm:^5.1.0"
+    node-cache: "npm:^5.1.2"
     node-cron: "npm:^1.2.1"
     node-fetch: "npm:^2.6.7"
     node-mocks-http: "npm:^1.7.0"
