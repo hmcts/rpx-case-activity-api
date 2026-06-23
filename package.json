@@ -35,7 +35,7 @@
     ]
   },
   "dependencies": {
-    "@hmcts/nodejs-healthcheck": "^1.8.0",
+    "@hmcts/nodejs-healthcheck": "^1.8.6",
     "@hmcts/nodejs-logging": "^4.0.4",
     "@hmcts/properties-volume": "^0.0.14",
     "applicationinsights": "2.9.8",
