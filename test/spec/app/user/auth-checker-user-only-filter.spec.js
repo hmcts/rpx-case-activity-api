@@ -60,13 +60,13 @@ describe('authCheckerUserOnlyFilter', () => {
 
     it('should call next middleware with error', done => {
       ERROR = {
-        name: 'FetchError',
+        name: 'AuthorizationError',
         status: 403
       };
       userRequestAuthorizer.authorise.returns(Promise.reject(ERROR));
 
       filter(req, res, error => {
-        expect(error).to.equal(error);
+        expect(error).to.equal(ERROR);
         done();
       });
     });
@@ -225,7 +225,7 @@ describe('authCheckerUserOnlyFilter', () => {
       filter(req, res, error => {
         expect(error.status).to.equal(500);
         expect(error.error).to.equal('Internal Server Error');
-        expect(error.message).to.equal(undefined);
+        expect(error.message).to.be.undefined;
         done();
       });
     });

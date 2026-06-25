@@ -1,4 +1,7 @@
+const { Logger } = require('@hmcts/nodejs-logging');
 const keys = require('./keys');
+
+const logger = Logger.getLogger('redis-pub-sub');
 
 function parseMessage(message) {
   if (typeof message !== 'string') {
@@ -7,7 +10,8 @@ function parseMessage(message) {
 
   try {
     return JSON.parse(message);
-  } catch (e) {
+  } catch (error) {
+    logger.warn('Failed to parse Redis pub-sub message', error);
     return {};
   }
 }
