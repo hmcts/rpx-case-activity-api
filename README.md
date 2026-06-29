@@ -63,7 +63,7 @@ The tests can be run using:
 $ yarn test:end2end
 ```
 
-## Functional Tests
+## Functional Tests.
 The functional tests are located in `aat` folder. The tests are written using 
 befta-fw library. To find out more about BEFTA Framework, see the repository and its README [here](https://github.com/hmcts/befta-fw).
 
