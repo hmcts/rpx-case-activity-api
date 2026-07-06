@@ -31,6 +31,7 @@ app:
 appInsights:
   roleName: "rpx-case-activity-api"
   enabled: true
+  samplingPercentage: 1
 
 secrets:
   rpx:
