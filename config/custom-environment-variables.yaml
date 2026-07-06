@@ -29,8 +29,6 @@ cache:
 app:
   requestTimeoutSec: APP_REQUEST_TIMEOUT
   storeCleanupCrontab: APP_STORE_CLEANUP_CRONTAB
-appInsights:
-  samplingPercentage: APPINSIGHTS_SAMPLING_PERCENTAGE
 
 secrets:
   rpx:
