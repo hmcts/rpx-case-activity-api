@@ -54,7 +54,7 @@ The tests can be run using:
 $ yarn test
 ```
 
-## End to End tests
+## End to End tests.
 
 The end to end tests require a running instance of Redis. Beware before each test all keys in Redis are removed.
 The tests can be run using:
