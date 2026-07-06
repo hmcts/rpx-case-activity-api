@@ -41,6 +41,6 @@ variable "shared_product_name" {
 }
 
 variable "sampling_percentage" {
-  default     = 1Expand commentComment on line R31Resolved
+  default     = 1
   description = "Specifies the sampling percentage for Application Insights"
 }
