@@ -31,6 +31,7 @@ module "application_insights" {
   application_type    = var.application_type
   resource_group_name = azurerm_resource_group.rg.name
   alert_limit_reached = true
+  sampling_percentage = var.sampling_percentage
 
   common_tags = var.common_tags
 }

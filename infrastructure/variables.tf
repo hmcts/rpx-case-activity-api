@@ -39,3 +39,8 @@ variable "capacity" {
 variable "shared_product_name" {
   default = "rpx"
 }
+
+variable "sampling_percentage" {
+  default     = 1
+  description = "Specifies the sampling percentage for Application Insights"
+}
