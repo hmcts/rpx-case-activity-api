@@ -3,40 +3,150 @@ const expect = chai.expect;
 const sinon = require('sinon');
 const proxyquire = require('proxyquire');
 const path = require('path');
-const enableAppInsights = require('../../../../app/app-insights/app-insights');
 
-describe('Application insights', () => {
-  it('should initialize properly', () => {
-    expect(enableAppInsights).to.not.throw();
+const modulePath = path.resolve(__dirname, '../../../../app/app-insights/app-insights.js');
+const appInsightsConnectionString = 'InstrumentationKey=XYZ;IngestionEndpoint=https://foo';
+const roleName = 'rpx-case-activity-api';
+const samplingConfigKey = 'appInsights.samplingPercentage';
+
+const buildConfigStub = ({
+  enabled = true,
+  samplingConfigAvailable = true,
+  samplingPercentage = 100
+} = {}) => {
+  const get = sinon.stub();
+  get.withArgs('appInsights.enabled').returns(enabled);
+  get.withArgs('secrets.rpx.app-insights-connection-string-at')
+    .returns(appInsightsConnectionString);
+  get.withArgs('appInsights.roleName').returns(roleName);
+  get.withArgs(samplingConfigKey).returns(samplingPercentage);
+
+  const has = sinon.stub();
+  has.withArgs(samplingConfigKey).returns(samplingConfigAvailable);
+
+  return { get, has };
+};
+
+const buildApplicationInsightsStub = () => {
+  const defaultClient = {
+    context: {
+      tags: {},
+      keys: { cloudRole: 'cloudRoleKey' }
+    },
+    config: {}
+  };
+  const setAutoDependencyCorrelation = sinon.stub().returnsThis();
+  const setAutoCollectConsole = sinon.stub().returnsThis();
+  const setupChain = {
+    setAutoDependencyCorrelation,
+    setAutoCollectConsole
+  };
+  const setup = sinon.stub().returns(setupChain);
+  const start = sinon.stub();
+
+  return {
+    appInsights: {
+      setup,
+      start,
+      defaultClient
+    },
+    defaultClient,
+    setAutoCollectConsole,
+    setAutoDependencyCorrelation,
+    setup,
+    start
+  };
+};
+
+const loadAppInsights = (configOptions = {}) => {
+  delete require.cache[modulePath];
+
+  const config = buildConfigStub(configOptions);
+  const applicationInsights = buildApplicationInsightsStub();
+  const enableAppInsights = proxyquire(modulePath, {
+    config,
+    applicationinsights: applicationInsights.appInsights,
   });
 
-  it('should read connection string and role name when enabled', () => {
-    const configStub = {
-      get: sinon.stub()
-        .withArgs('appInsights.enabled').returns(true)
-        .withArgs('secrets.rpx.app-insights-connection-string-at').returns('InstrumentationKey=XYZ;IngestionEndpoint=https://foo')
-        .withArgs('appInsights.roleName').returns('rpx-case-activity-api'),
-    };
-    const defaultClient = { context: { tags: {}, keys: { cloudRole: 'cloudRoleKey' } }, config: {} };
-    const setAutoDependencyCorrelation = sinon.stub().returnsThis();
-    const setAutoCollectConsole = sinon.stub().returnsThis();
-    const setupStub = sinon.stub().returns({ setAutoDependencyCorrelation, setAutoCollectConsole });
-    const startStub = sinon.stub();
-    const appInsightsStub = { setup: setupStub, start: startStub, defaultClient };
+  return {
+    config,
+    enableAppInsights,
+    ...applicationInsights
+  };
+};
 
-    const modulePath = path.resolve(__dirname, '../../../../app/app-insights/app-insights.js');
-    delete require.cache[modulePath];
-    const enableWithStubs = proxyquire(modulePath, {
-      config: configStub,
-      applicationinsights: appInsightsStub,
-    });
+describe('Application insights', () => {
+  it('should export an initializer function', () => {
+    const { enableAppInsights } = loadAppInsights();
 
-    enableWithStubs();
+    expect(enableAppInsights).to.be.a('function');
+  });
 
-    expect(setupStub).to.have.been.calledOnce;
-    expect(configStub.get).to.have.been.calledWith('secrets.rpx.app-insights-connection-string-at');
-    expect(configStub.get).to.have.been.calledWith('appInsights.roleName');
-    expect(defaultClient.context.tags['cloudRoleKey']).to.equal('rpx-case-activity-api');
-    expect(startStub).to.have.been.calledOnce;
+  it('should not initialize application insights when disabled', () => {
+    const {
+      config,
+      enableAppInsights,
+      setup,
+      start
+    } = loadAppInsights({ enabled: false });
+
+    enableAppInsights();
+
+    sinon.assert.calledOnceWithExactly(config.get, 'appInsights.enabled');
+    sinon.assert.notCalled(config.has);
+    sinon.assert.notCalled(setup);
+    sinon.assert.notCalled(start);
+  });
+
+  it('should initialize application insights with configured sampling percentage', () => {
+    const {
+      config,
+      defaultClient,
+      enableAppInsights,
+      setAutoCollectConsole,
+      setAutoDependencyCorrelation,
+      setup,
+      start
+    } = loadAppInsights({ samplingPercentage: 100 });
+
+    enableAppInsights();
+
+    sinon.assert.calledWithExactly(setup, appInsightsConnectionString);
+    sinon.assert.calledWithExactly(setAutoDependencyCorrelation, true);
+    sinon.assert.calledWithExactly(setAutoCollectConsole, true, true);
+    sinon.assert.calledWith(config.get, 'secrets.rpx.app-insights-connection-string-at');
+    sinon.assert.calledWith(config.get, 'appInsights.roleName');
+    sinon.assert.calledWith(config.get, samplingConfigKey);
+    expect(defaultClient.context.tags.cloudRoleKey).to.equal(roleName);
+    expect(defaultClient.config.samplingPercentage).to.equal(100);
+    sinon.assert.calledOnce(start);
+  });
+
+  it('should default sampling percentage to 1 when config is unavailable', () => {
+    const {
+      config,
+      defaultClient,
+      enableAppInsights
+    } = loadAppInsights({ samplingConfigAvailable: false });
+
+    enableAppInsights();
+
+    sinon.assert.calledWith(config.has, samplingConfigKey);
+    sinon.assert.neverCalledWith(config.get, samplingConfigKey);
+    expect(defaultClient.config.samplingPercentage).to.equal(1);
+  });
+
+  it('should default sampling percentage to 1 when config value is invalid', () => {
+    const {
+      config,
+      defaultClient,
+      enableAppInsights
+    } = loadAppInsights({ samplingPercentage: 'not-a-number' });
+
+    enableAppInsights();
+
+    sinon.assert.calledWith(config.has, samplingConfigKey);
+    sinon.assert.calledWith(config.get, samplingConfigKey);
+    expect(defaultClient.config.samplingPercentage).to.equal(1);
   });
 });
