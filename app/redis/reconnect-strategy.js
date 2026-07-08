@@ -1,4 +1,7 @@
+const { Logger } = require('@hmcts/nodejs-logging');
 const config = require('config');
+
+const logger = Logger.getLogger('redis-reconnect-strategy');
 
 const DEFAULT_MIN_DELAY_MS = 5000;
 const DEFAULT_MAX_DELAY_MS = 10000;
@@ -35,7 +38,7 @@ function redisReconnectDelay(retries) {
   // Keep Redis reconnect attempts periodic and bounded between the configured limits.
   const delayMs = minDelayMs + ((retryCount - 1) * RETRY_STEP_MS);
 
-  console.log(`Redis reconnect attempt #${retryCount}, delaying for ${delayMs}ms`);
+  logger.warn(`Redis reconnect attempt #${retryCount}, delaying for ${delayMs}ms`);
 
   return Math.min(delayMs, maxDelayMs);
 }

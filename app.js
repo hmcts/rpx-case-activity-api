@@ -1,9 +1,12 @@
 const healthcheck = require('@hmcts/nodejs-healthcheck');
+const { Logger } = require('@hmcts/nodejs-logging');
 const express = require('express');
 const logger = require('morgan');
 const config = require('config');
 const debug = require('debug')('rpx-case-activity-api:app');
 const enableAppInsights = require('./app/app-insights/app-insights');
+
+const appLogger = Logger.getLogger('app');
 
 enableAppInsights();
 
@@ -41,17 +44,17 @@ if (config.util.getEnv('NODE_ENV') === 'test') {
 }
 
 debug(`starting application with environment: ${config.util.getEnv('NODE_ENV')}`);
-console.log(`starting application with environment: ${config.util.getEnv('NODE_ENV')}`);
+appLogger.warn(`starting application with environment: ${config.util.getEnv('NODE_ENV')}`);
 
 app.use(corsHandler);
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(express.text());
 
-console.log('Applying auth checker user only filter');
+appLogger.warn('Applying auth checker user only filter');
 app.use(authCheckerUserOnlyFilter);
 
-console.log('Mounting activity route at /');
+appLogger.warn('Mounting activity route at /');
 app.use('/', activity);
 
 // catch 404 and forward to error handler
@@ -66,13 +69,13 @@ app.use((req, res, next) => {
 /* eslint-disable no-unused-vars */
 app.use((err, req, res, next) => {
   debug(`Error processing request: ${err}`);
-  console.log(`Error processing request: ${err}`);
+  appLogger.warn(`Error processing request: ${err}`);
 
   // set locals, only providing error in development
   res.locals.message = err.message;
   res.locals.error = req.app.get('env') === 'development' ? err : {};
 
-  console.log(`Returning error response: ${err.status || 500} - ${err.message}`);
+  appLogger.warn(`Returning error response: ${err.status || 500} - ${err.message}`);
 
   res.status(err.status || 500);
   res.json({

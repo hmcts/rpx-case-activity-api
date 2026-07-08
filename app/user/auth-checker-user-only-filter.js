@@ -30,7 +30,6 @@ const authCheckerUserOnlyFilter = (req, res, next) => {
   const authorization = req.get('Authorization');
   req.authentication = {};
 
-  console.log('Authenticating user');
   logger.warn('Authenticating user');
 
   userRequestAuthorizer

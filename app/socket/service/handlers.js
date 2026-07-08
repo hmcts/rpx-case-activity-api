@@ -1,5 +1,8 @@
+const { Logger } = require('@hmcts/nodejs-logging');
 const keys = require('../redis/keys');
 const utils = require('../utils');
+
+const logger = Logger.getLogger('socket-service-handlers');
 
 function createSocketHandlers(activityService, socketServer) {
   /**
@@ -13,7 +16,9 @@ function createSocketHandlers(activityService, socketServer) {
     // Update what's being watched.
     utils.watch.update(socket, [caseId]);
 
-    console.log('Adding activity for caseId ', caseId, ' user ', user, ' activity ', activity);
+    logger.warn(
+      `Adding activity for caseId ${caseId} user ${JSON.stringify(user)} activity ${activity}`
+    );
 
     // Then add this new activity to redis, which will also clear out the old activity.
     await activityService.addActivity(caseId, user, socket.id, activity);
@@ -26,8 +31,7 @@ function createSocketHandlers(activityService, socketServer) {
    */
   async function notify(caseId, options = {}) {
     const cs = await activityService.getActivityForCases([caseId]);
-    console.log('notifying case activity: ', JSON.stringify(cs));
-    // console.log('notifying case activity: ', JSON.stringify(cs, null, 2));
+    logger.warn(`notifying case activity: ${JSON.stringify(cs)}`);
     // With the Redis adapter enabled, each node receives the same case-change
     // pub/sub signal. Emit locally so each connected client sees one message.
     const emitter = socketServer.local || socketServer;
@@ -44,7 +48,7 @@ function createSocketHandlers(activityService, socketServer) {
    * @param {*} socketId The id of the socket to remove activity for.
    */
   async function removeSocketActivity(socketId) {
-    console.log('Removing socket activity for socketId ', socketId);
+    logger.warn(`Removing socket activity for socketId ${socketId}`);
     await activityService.removeSocketActivity(socketId);
   }
 
@@ -70,7 +74,7 @@ function createSocketHandlers(activityService, socketServer) {
 
   async function stop(socket, caseId) {
     // Stop watching the current cases.
-    console.log('Stop watching cases to ', caseId, ' for socket ', socket.id);
+    logger.warn(`Stop watching cases to ${caseId} for socket ${socket.id}`);
     if (caseId) {
       socket.leave(keys.case.base(caseId));
     }

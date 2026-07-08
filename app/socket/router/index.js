@@ -2,8 +2,69 @@ const { Logger } = require('@hmcts/nodejs-logging');
 const utils = require('../utils');
 
 const logger = Logger.getLogger('index-socket-router');
+const getSocketTimestamp = () => new Date().toISOString();
+const logSocketWarning = (message, ...args) => logger.warn(`[${getSocketTimestamp()}] ${message}`, ...args);
+const logWarning = (message) => logger.warn(message);
 const users = {};
 const connections = [];
+
+function normaliseRooms(socket) {
+  if (!socket?.rooms) {
+    return [];
+  }
+
+  return Array.isArray(socket.rooms) ? [...socket.rooms] : Array.from(socket.rooms);
+}
+
+function getIdamId(user) {
+  return user?.uid ?? user?.idamId ?? user?.id ?? 'unknown';
+}
+
+function normaliseUser(user) {
+  if (!user) {
+    return 'unknown';
+  }
+
+  return {
+    idamId: getIdamId(user),
+    id: user.id || user.uid,
+    name: user.name,
+    forename: user.forename || user.given_name,
+    surname: user.surname || user.family_name
+  };
+}
+
+function formatError(error) {
+  if (!error) {
+    return undefined;
+  }
+
+  return {
+    name: error.name,
+    message: error.message || String(error)
+  };
+}
+
+function getSocketLifecycleDetails(socket, event, reason, user, timestamp, extra = {}) {
+  return JSON.stringify({
+    event,
+    timestamp,
+    socketId: socket?.id,
+    reason: reason || 'unknown',
+    idamId: getIdamId(user),
+    user: normaliseUser(user),
+    transport: socket?.conn?.transport?.name || 'unknown',
+    engineSocketId: socket?.conn?.id,
+    remoteAddress: socket?.handshake?.address,
+    rooms: normaliseRooms(socket),
+    ...extra
+  });
+}
+
+function logSocketLifecycle(socket, event, reason, user, extra) {
+  const timestamp = getSocketTimestamp();
+  logger.warn(`[${timestamp}] Socket lifecycle ${getSocketLifecycleDetails(socket, event, reason, user, timestamp, extra)}`);
+}
 
 function runHandler(handler, next) {
   try {
@@ -44,7 +105,7 @@ const router = {
     return [...connections];
   },
   init: (io, iorouter, handlers) => {
-    console.log('Initializing socket router');
+    logSocketWarning('Initializing socket router');
     // Set up routes for each type of message.
     iorouter.on('view', (socket, ctx, next) => {
       const user = router.getUser(socket.id);
@@ -74,8 +135,7 @@ const router = {
 
     // On client connection, attach the router and track the socket.
     io.on('connection', (socket) => {
-      console.log(`Socket connected: ${socket.id}`);
-      logger.warn(`Socket connected: ${socket.id}`);
+      logSocketWarning(`Socket connected: ${socket.id}`);
 
       router.addConnection(socket);
       let userObj = null;
@@ -83,28 +143,59 @@ const router = {
         try {
           userObj = JSON.parse(socket.handshake.query.user);
         } catch (e) {
-          utils.log(socket, '', 'Failed to parse user from handshake query', console.error, e);
-          logger.warn(`Failed to parse user from handshake query: ${e.message}`);
-          console.log(`Failed to parse user from handshake query: ${e.message}`);
+          utils.log(socket, '', 'Failed to parse user from handshake query', logWarning, getSocketTimestamp());
+          logSocketWarning(`Failed to parse user from handshake query: ${e.message}`);
         }
       }
       router.addUser(socket.id, userObj);
+      const getSocketUser = () => router.getUser(socket.id) || userObj;
       utils.log(socket, '', `connected (${router.getConnections().length} total)`);
-      logger.warn(`Socket connected: ${socket.id} for user ${userObj ? userObj.name : 'unknown'}`);
+      logSocketWarning(`Socket connected: ${socket.id} for user ${userObj ? userObj.name : 'unknown'}`);
 
-      // eslint-disable-next-line no-console
-      utils.log(socket, '', `connected (${router.getConnections().length} total)`, console.log, Date.now());
+      utils.log(
+        socket,
+        '',
+        `connected (${router.getConnections().length} total)`,
+        logWarning,
+        getSocketTimestamp()
+      );
       socket.use((packet, next) => {
         iorouter.attach(socket, packet, next);
       });
+
+      socket.on('disconnecting', (reason) => {
+        logSocketLifecycle(socket, 'disconnecting', reason, getSocketUser());
+      });
+
+      if (socket.conn && typeof socket.conn.on === 'function') {
+        socket.conn.on('close', (reason) => {
+          logSocketLifecycle(socket, 'engine-close', reason, getSocketUser());
+        });
+      }
+
+      socket.on('error', (error) => {
+        logSocketLifecycle(
+          socket,
+          'error',
+          error?.message || String(error),
+          getSocketUser(),
+          { error: formatError(error) }
+        );
+      });
+
       // When the socket disconnects, do an appropriate teardown.
-      socket.on('disconnect', () => {
-        console.log(`Socket disconnected: ${socket.id}`);
-        logger.warn(`Socket disconnected: ${socket.id}`);
+      socket.on('disconnect', (reason) => {
+        logSocketLifecycle(socket, 'disconnect', reason, getSocketUser());
+        logSocketWarning(`Socket disconnected: ${socket.id}`);
 
         utils.log(socket, '', `disconnected (${router.getConnections().length - 1} total)`);
-        // eslint-disable-next-line no-console
-        utils.log(socket, '', `disconnected (${router.getConnections().length - 1} total)`, console.log, Date.now());
+        utils.log(
+          socket,
+          '',
+          `disconnected (${router.getConnections().length - 1} total)`,
+          logWarning,
+          getSocketTimestamp()
+        );
         handlers.removeSocketActivity(socket.id);
         router.removeUser(socket.id);
         router.removeConnection(socket);

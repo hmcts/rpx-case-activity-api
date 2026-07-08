@@ -53,10 +53,27 @@ describe('socket.router', () => {
     id: 'socket-id',
     handshake: {
       query: {
-        user: JSON.stringify({ id: 'a', name: 'Bob Smith' })
+        user: JSON.stringify({ id: 'a', uid: 'idam-user-id', name: 'Bob Smith' })
       }
     },
     rooms: ['socket-id'],
+    conn: {
+      id: 'engine-socket-id',
+      transport: {
+        name: 'websocket'
+      },
+      events: {},
+      on: function(event, eventHandler) {
+        this.events[event] = eventHandler;
+      },
+      dispatch: function(event, ...args) {
+        const handler = this.events[event];
+        if (handler) {
+          return handler(...args);
+        }
+        return null;
+      }
+    },
     events: {},
     messages: [],
     using: [],
@@ -80,11 +97,12 @@ describe('socket.router', () => {
     on: (event, eventHandler) => {
       MOCK_SOCKET.events[event] = eventHandler;
     },
-    dispatch: (event) => {
+    dispatch: (event, ...args) => {
       const handler = MOCK_SOCKET.events[event];
       if (handler) {
-        handler(MOCK_SOCKET);
+        return handler(...args);
       }
+      return null;
     }
   };
 
@@ -99,6 +117,7 @@ describe('socket.router', () => {
     MOCK_HANDLERS.calls.length = 0;
     MOCK_HANDLERS.stopPromise = null;
     MOCK_SOCKET.using.length = 0;
+    MOCK_SOCKET.conn.events = {};
     router.removeUser(MOCK_SOCKET.id);
     router.removeConnection(MOCK_SOCKET);
   });
@@ -206,6 +225,9 @@ describe('socket.router', () => {
       expect(MOCK_SOCKET.using).to.have.lengthOf(1);
       expect(MOCK_SOCKET.using[0]).to.be.a('function');
       expect(MOCK_SOCKET.events.disconnect).to.be.a('function');
+      expect(MOCK_SOCKET.events.disconnecting).to.be.a('function');
+      expect(MOCK_SOCKET.events.error).to.be.a('function');
+      expect(MOCK_SOCKET.conn.events.close).to.be.a('function');
     });
     it('should handle a socket use', () => {
       const useFn = MOCK_SOCKET.using[0];
@@ -220,12 +242,22 @@ describe('socket.router', () => {
       expect(MOCK_IO_ROUTER.attachments[0].next).to.equal(NEXT_FN);
     });
     it('should handle a socket disconnecting', () => {
-      MOCK_SOCKET.dispatch('disconnect');
+      MOCK_SOCKET.dispatch('disconnecting', 'transport close');
+      MOCK_SOCKET.dispatch('disconnect', 'transport close');
       expect(MOCK_HANDLERS.calls).to.have.lengthOf(1);
       expect(MOCK_HANDLERS.calls[0].method).to.equal('removeSocketActivity');
       expect(MOCK_HANDLERS.calls[0].params.socketId).to.equal(MOCK_SOCKET.id);
       expect(router.getUser(MOCK_SOCKET.id)).to.be.undefined;
       expect(router.getConnections()).to.have.lengthOf(0);
+    });
+    it('should handle socket connection close and error diagnostics', () => {
+      MOCK_SOCKET.conn.dispatch('close', 'transport close');
+      MOCK_SOCKET.dispatch('error', new Error('socket middleware failure'));
+
+      expect(router.getUser(MOCK_SOCKET.id))
+        .to.deep.equal(JSON.parse(MOCK_SOCKET.handshake.query.user));
+      expect(router.getConnections()).to.have.lengthOf(1);
+      expect(MOCK_HANDLERS.calls).to.have.lengthOf(0);
     });
   });
 

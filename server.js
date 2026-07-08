@@ -4,16 +4,19 @@
  * Module dependencies.
  */
 require('@hmcts/properties-volume').addTo(require('config'));
+const { Logger } = require('@hmcts/nodejs-logging');
 const { normalizePort, onListening, onServerError } = require('./app/util/utils');
 const debug = require('debug')('rpx-case-activity-api:server');
 const http = require('node:http');
 const app = require('./app');
 
+const logger = Logger.getLogger('server');
+
 /**
  * Get port from environment and store in Express.
  */
 const port = normalizePort(process.env.PORT || '3460');
-console.log(`Starting on port ${port}`);
+logger.warn(`Starting on port ${port}`);
 app.set('port', port);
 
 /**
@@ -41,15 +44,15 @@ require('./app/socket')(server, redis);
  * Listen on provided port, on all network interfaces.
  */
 
-console.log(`Listening on port ${port}`);
+logger.warn(`Listening on port ${port}`);
 server.listen(port);
 
-console.log(`Server started on port ${port}`);
+logger.warn(`Server started on port ${port}`);
 
-console.log('Registering onServerError handler');
+logger.warn('Registering onServerError handler');
 
-server.on('error', onServerError(port, console.error, process.exit));
+server.on('error', onServerError(port, (message) => logger.warn(message), process.exit));
 
-console.log('Registering onListening handler');
+logger.warn('Registering onListening handler');
 
 server.on('listening', onListening(server, debug));

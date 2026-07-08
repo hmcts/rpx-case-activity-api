@@ -1,5 +1,8 @@
+const { Logger } = require('@hmcts/nodejs-logging');
 const keys = require('../redis/keys');
 const utils = require('../utils');
+
+const logger = Logger.getLogger('socket-activity-service');
 
 function createSocketActivityService(config, redis) {
   const ttl = {
@@ -8,7 +11,7 @@ function createSocketActivityService(config, redis) {
   };
 
   const notifyChange = (caseId, excludedSocketId) => {
-    console.log('Notifying change for caseId ', caseId);
+    logger.warn(`Notifying change for caseId ${caseId}`);
     if (caseId) {
       const message = excludedSocketId
         ? JSON.stringify({ timestamp: Date.now(), excludedSocketId })
@@ -18,19 +21,19 @@ function createSocketActivityService(config, redis) {
   };
 
   const getSocketActivity = async (socketId) => {
-    console.log('Getting socket activity for socketId ', socketId);
+    logger.warn(`Getting socket activity for socketId ${socketId}`);
     if (socketId) {
       const key = keys.socket(socketId);
-      console.log('Socket activity key: ', key);
+      logger.warn(`Socket activity key: ${key}`);
       return JSON.parse(await redis.get(key));
     }
     return null;
   };
 
   const getUserDetails = async (userIds) => {
-    console.log('Getting user details for userIds ', userIds);
+    logger.warn(`Getting user details for userIds ${userIds}`);
     if (Array.isArray(userIds) && userIds.length > 0) {
-      console.log('Fetching user details from redis');
+      logger.warn('Fetching user details from redis');
       // Get hold of the details.
       const details = await redis.pipeline(utils.get.users(userIds)).exec();
       // Now turn them into a map.
@@ -46,7 +49,9 @@ function createSocketActivityService(config, redis) {
   };
 
   const doRemoveActivity = async (socketId, removeSocketEntry = false) => {
-    console.log('Removing activity for socketId ', socketId, ' removeSocketEntry=', removeSocketEntry);
+    logger.warn(
+      `Removing activity for socketId ${socketId} removeSocketEntry=${removeSocketEntry}`
+    );
     // First make sure we actually have some activity to remove.
     const activity = await getSocketActivity(socketId);
     if (activity) {
@@ -89,7 +94,10 @@ function createSocketActivityService(config, redis) {
   };
 
   const addActivity = async (caseId, user, socketId, activity) => {
-    console.log(`adding activity for caseId '${caseId}', user`, user, `on socket '${socketId}' with activity '${activity}'`);
+    logger.warn(
+      `adding activity for caseId '${caseId}', user ${JSON.stringify(user)} `
+      + `on socket '${socketId}' with activity '${activity}'`
+    );
     if (caseId && user && socketId && activity) {
       // First, clear out any existing activity on this socket.
       const removedCaseId = await doRemoveSocketActivity(socketId);

@@ -1,3 +1,4 @@
+const { Logger } = require('@hmcts/nodejs-logging');
 const config = require('config');
 const IORouter = require('socket.io-router-middleware');
 const SocketIO = require('socket.io');
@@ -10,6 +11,10 @@ const Handlers = require('./service/handlers');
 const pubSub = require('./redis/pub-sub')();
 const router = require('./router');
 const { redisReconnectDelay } = require('../redis/reconnect-strategy');
+
+const logger = Logger.getLogger('socket-index');
+const getSocketTimestamp = () => new Date().toISOString();
+const logSocketWarning = (message, ...args) => logger.warn(`[${getSocketTimestamp()}] ${message}`, ...args);
 
 function buildRedisAdapterOptions(redisUrl, useTLS) {
   return {
@@ -33,10 +38,10 @@ function buildRedisAdapterOptions(redisUrl, useTLS) {
  *
  */
 function createSocketServer(server, redis) {
-  console.log('Setting up socket server');
+  logSocketWarning('Setting up socket server');
   const activityService = ActivityService(config, redis);
 
-  console.log('Creating socket server');
+  logSocketWarning('Creating socket server');
   const socketServer = SocketIO(server, {
     allowEIO3: true,
     cors: {
@@ -61,7 +66,7 @@ function createSocketServer(server, redis) {
       const redisPwd = redisPwdObj?.value ?? redisPwdObj;
 
       if (!redisHost || !redisPort) {
-        console.warn('[SOCKET.IO] redis.host/redis.port missing — Redis adapter not enabled');
+        logSocketWarning('[SOCKET.IO] redis.host/redis.port missing - Redis adapter not enabled');
         return;
       }
 
@@ -74,7 +79,7 @@ function createSocketServer(server, redis) {
         ? `${scheme}://:${encodeURIComponent(redisPwd)}@${redisHost}:${redisPort}`
         : `${scheme}://${redisHost}:${redisPort}`;
 
-      console.log('[SOCKET.IO] Connecting to Redis at', redisUrl, '(TLS:', useTLS, ')');
+      logSocketWarning(`[SOCKET.IO] Connecting to Redis at ${redisUrl} (TLS: ${useTLS})`);
 
       const redisOptions = buildRedisAdapterOptions(redisUrl, useTLS);
 
@@ -83,16 +88,16 @@ function createSocketServer(server, redis) {
 
       const attachErrorHandlers = (client, name) => {
         client.on('error', (err) => {
-          console.log(`[SOCKET.IO][REDIS][${name}] redis client error:`, err?.message ?? err);
+          logSocketWarning(`[SOCKET.IO][REDIS][${name}] redis client error: ${err?.message ?? err}`);
         });
         client.on('connect', () => {
-          console.log(`[SOCKET.IO][REDIS][${name}] connected`);
+          logSocketWarning(`[SOCKET.IO][REDIS][${name}] connected`);
         });
         client.on('end', () => {
-          console.log(`[SOCKET.IO][REDIS][${name}] connection ended`);
+          logSocketWarning(`[SOCKET.IO][REDIS][${name}] connection ended`);
         });
         client.on('reconnecting', () => {
-          console.log(`[SOCKET.IO][REDIS][${name}] reconnecting`);
+          logSocketWarning(`[SOCKET.IO][REDIS][${name}] reconnecting`);
         });
       };
 
@@ -104,15 +109,15 @@ function createSocketServer(server, redis) {
 
       io.adapter(createAdapter(pubClient, subClient));
 
-      console.log('[SOCKET.IO] Redis adapter enabled');
+      logSocketWarning('[SOCKET.IO] Redis adapter enabled');
     } catch (err) {
-      console.log('[SOCKET.IO] Failed to enable Redis adapter:', err);
+      logSocketWarning('[SOCKET.IO] Failed to enable Redis adapter', err);
     }
   }
 
   // Call the adapter initialisation (non-blocking)
   enableRedisAdapter(socketServer).catch((err) => {
-    console.log('[SOCKET.IO] Redis adapter init failed:', err);
+    logSocketWarning('[SOCKET.IO] Redis adapter init failed', err);
   });
 
   //
@@ -120,19 +125,19 @@ function createSocketServer(server, redis) {
   // SETUP ROUTER + HANDLERS + PUBSUB
   // ---------------------------------------------------------
   //
-  console.log('Setting up socket handlers and router');
+  logSocketWarning('Setting up socket handlers and router');
   const handlers = Handlers(activityService, socketServer);
 
-  console.log('Initializing router for socket server');
+  logSocketWarning('Initializing router for socket server');
   router.init(socketServer, new IORouter(), handlers);
 
-  console.log('Initializing pubsub for socket server');
+  logSocketWarning('Initializing pubsub for socket server');
   try {
     const watcher = redis.duplicate();
     pubSub.init(watcher, handlers.notify);
-    console.log('PubSub initialized');
+    logSocketWarning('PubSub initialized');
   } catch (e) {
-    console.error('PubSub init failed (sockets still running):', e);
+    logSocketWarning('PubSub init failed (sockets still running)', e);
   }
 
   //
@@ -143,10 +148,10 @@ function createSocketServer(server, redis) {
   // log connections and errors
   socketServer.on('connection', (s) => {
     // Socket Connected
-    console.log('Socket connected:', s.id, 'transport:', s.conn.transport.name);
+    logSocketWarning(`Socket connected: ${s.id} transport: ${s.conn.transport.name}`);
   });
   socketServer.on('error', (err) => {
-    console.log('[SOCKET.IO] server error:', err?.message ?? err);
+    logSocketWarning(`[SOCKET.IO] server error: ${err?.message ?? err}`);
   });
   return { socketServer, activityService, handlers };
 }
