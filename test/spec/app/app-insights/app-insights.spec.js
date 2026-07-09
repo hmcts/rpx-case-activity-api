@@ -1,95 +1,151 @@
 const chai = require('chai');
 const expect = chai.expect;
-const sinon = require('sinon');
-const proxyquire = require('proxyquire');
 const path = require('path');
-const enableAppInsights = require('../../../../app/app-insights/app-insights');
+const proxyquire = require('proxyquire').noCallThru();
+const sinon = require('sinon');
 
-describe('Application insights', () => {
-  it('should initialize properly', () => {
-    expect(enableAppInsights).to.not.throw();
+const modulePath = path.resolve(__dirname, '../../../../app/app-insights/app-insights.js');
+const appInsightsConnectionString = 'InstrumentationKey=XYZ;IngestionEndpoint=https://foo';
+const roleName = 'rpx-case-activity-api';
+const samplingConfigKey = 'appInsights.samplingPercentage';
+
+const buildConfigStub = ({
+  enabled = true,
+  samplingConfigAvailable = true,
+  samplingPercentage = 100
+} = {}) => {
+  const get = sinon.stub();
+  get.withArgs('appInsights.enabled').returns(enabled);
+  get.withArgs('secrets.rpx.app-insights-connection-string-at')
+    .returns(appInsightsConnectionString);
+  get.withArgs('appInsights.roleName').returns(roleName);
+  get.withArgs(samplingConfigKey).returns(samplingPercentage);
+
+  const has = sinon.stub();
+  has.withArgs(samplingConfigKey).returns(samplingConfigAvailable);
+
+  return { get, has };
+};
+
+const buildApplicationInsightsStub = () => {
+  const defaultClient = {
+    context: {
+      tags: {},
+      keys: { cloudRole: 'cloudRoleKey' }
+    },
+    config: {}
+  };
+  const setAutoDependencyCorrelation = sinon.stub().returnsThis();
+  const setAutoCollectConsole = sinon.stub().returnsThis();
+  const setup = sinon.stub().returns({
+    setAutoDependencyCorrelation,
+    setAutoCollectConsole
+  });
+  const start = sinon.stub();
+
+  return {
+    appInsights: {
+      setup,
+      start,
+      defaultClient
+    },
+    defaultClient,
+    setAutoCollectConsole,
+    setAutoDependencyCorrelation,
+    setup,
+    start
+  };
+};
+
+const loadAppInsights = (configOptions = {}) => {
+  delete require.cache[modulePath];
+
+  const config = buildConfigStub(configOptions);
+  const applicationInsights = buildApplicationInsightsStub();
+  const enableAppInsights = proxyquire(modulePath, {
+    config,
+    applicationinsights: applicationInsights.appInsights
   });
 
-  it('should read connection string and role name when enabled', () => {
-    const getConfig = sinon.stub();
-    getConfig.withArgs('appInsights.enabled').returns(true);
-    getConfig
-      .withArgs('secrets.rpx.app-insights-connection-string-at')
-      .returns('InstrumentationKey=XYZ;IngestionEndpoint=https://foo');
-    getConfig.withArgs('appInsights.roleName').returns('rpx-case-activity-api');
-    getConfig.withArgs('appInsights.samplingPercentage').returns(100);
+  return {
+    config,
+    enableAppInsights,
+    ...applicationInsights
+  };
+};
 
-    const configStub = {
-      has: sinon.stub()
-        .withArgs('appInsights.samplingPercentage').returns(true),
-      get: getConfig,
-    };
-    const defaultClient = {
-      context: { tags: {}, keys: { cloudRole: 'cloudRoleKey' } },
-      config: {}
-    };
-    const setAutoDependencyCorrelation = sinon.stub().returnsThis();
-    const setAutoCollectConsole = sinon.stub().returnsThis();
-    const setupStub = sinon.stub().returns({
+describe('Application insights', () => {
+  it('should export an initializer function', () => {
+    const { enableAppInsights } = loadAppInsights();
+
+    expect(enableAppInsights).to.be.a('function');
+  });
+
+  it('should not initialize application insights when disabled', () => {
+    const {
+      config,
+      enableAppInsights,
+      setup,
+      start
+    } = loadAppInsights({ enabled: false });
+
+    enableAppInsights();
+
+    sinon.assert.calledOnceWithExactly(config.get, 'appInsights.enabled');
+    sinon.assert.notCalled(config.has);
+    sinon.assert.notCalled(setup);
+    sinon.assert.notCalled(start);
+  });
+
+  it('should initialize application insights with configured sampling percentage', () => {
+    const {
+      config,
+      defaultClient,
+      enableAppInsights,
+      setAutoCollectConsole,
       setAutoDependencyCorrelation,
-      setAutoCollectConsole
-    });
-    const startStub = sinon.stub();
-    const appInsightsStub = { setup: setupStub, start: startStub, defaultClient };
+      setup,
+      start
+    } = loadAppInsights({ samplingPercentage: 100 });
 
-    const modulePath = path.resolve(__dirname, '../../../../app/app-insights/app-insights.js');
-    delete require.cache[modulePath];
-    const enableWithStubs = proxyquire(modulePath, {
-      config: configStub,
-      applicationinsights: appInsightsStub,
-    });
+    enableAppInsights();
 
-    enableWithStubs();
-
-    sinon.assert.calledOnce(setupStub);
-    sinon.assert.calledWith(configStub.get, 'secrets.rpx.app-insights-connection-string-at');
-    sinon.assert.calledWith(configStub.get, 'appInsights.roleName');
-    expect(defaultClient.context.tags['cloudRoleKey']).to.equal('rpx-case-activity-api');
+    sinon.assert.calledWithExactly(setup, appInsightsConnectionString);
+    sinon.assert.calledWithExactly(setAutoDependencyCorrelation, true);
+    sinon.assert.calledWithExactly(setAutoCollectConsole, true, true);
+    sinon.assert.calledWith(config.get, 'secrets.rpx.app-insights-connection-string-at');
+    sinon.assert.calledWith(config.get, 'appInsights.roleName');
+    sinon.assert.calledWith(config.get, samplingConfigKey);
+    expect(defaultClient.context.tags.cloudRoleKey).to.equal(roleName);
     expect(defaultClient.config.samplingPercentage).to.equal(100);
-    sinon.assert.calledOnce(startStub);
+    sinon.assert.calledOnce(start);
   });
 
   it('should default sampling percentage to 1 when config is unavailable', () => {
-    const getConfig = sinon.stub();
-    getConfig.withArgs('appInsights.enabled').returns(true);
-    getConfig
-      .withArgs('secrets.rpx.app-insights-connection-string-at')
-      .returns('InstrumentationKey=XYZ;IngestionEndpoint=https://foo');
-    getConfig.withArgs('appInsights.roleName').returns('rpx-case-activity-api');
+    const {
+      config,
+      defaultClient,
+      enableAppInsights
+    } = loadAppInsights({ samplingConfigAvailable: false });
 
-    const configStub = {
-      has: sinon.stub()
-        .withArgs('appInsights.samplingPercentage').returns(false),
-      get: getConfig,
-    };
-    const defaultClient = {
-      context: { tags: {}, keys: { cloudRole: 'cloudRoleKey' } },
-      config: {}
-    };
-    const setAutoDependencyCorrelation = sinon.stub().returnsThis();
-    const setAutoCollectConsole = sinon.stub().returnsThis();
-    const setupStub = sinon.stub().returns({
-      setAutoDependencyCorrelation,
-      setAutoCollectConsole
-    });
-    const startStub = sinon.stub();
-    const appInsightsStub = { setup: setupStub, start: startStub, defaultClient };
-
-    const modulePath = path.resolve(__dirname, '../../../../app/app-insights/app-insights.js');
-    delete require.cache[modulePath];
-    const enableWithStubs = proxyquire(modulePath, {
-      config: configStub,
-      applicationinsights: appInsightsStub,
-    });
-
-    enableWithStubs();
+    enableAppInsights();
 
     expect(defaultClient.config.samplingPercentage).to.equal(1);
-    sinon.assert.neverCalledWith(configStub.get, 'appInsights.samplingPercentage');
+    sinon.assert.calledOnceWithExactly(config.has, samplingConfigKey);
+    sinon.assert.neverCalledWith(config.get, samplingConfigKey);
+  });
+
+  it('should default sampling percentage to 1 when config value is invalid', () => {
+    const {
+      config,
+      defaultClient,
+      enableAppInsights
+    } = loadAppInsights({ samplingPercentage: 'invalid' });
+
+    enableAppInsights();
+
+    expect(defaultClient.config.samplingPercentage).to.equal(1);
+    sinon.assert.calledOnceWithExactly(config.has, samplingConfigKey);
+    sinon.assert.calledWith(config.get, samplingConfigKey);
   });
 });
