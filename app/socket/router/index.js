@@ -3,8 +3,17 @@ const utils = require('../utils');
 
 const logger = Logger.getLogger('index-socket-router');
 const getSocketTimestamp = () => new Date().toISOString();
-const logSocketWarning = (message, ...args) => logger.warn(`[${getSocketTimestamp()}] ${message}`, ...args);
-const logWarning = (message) => logger.warn(message);
+const logSocketWarning = (message, ...args) => {
+  const timestampedMessage = `[${getSocketTimestamp()}] ${message}`;
+  // eslint-disable-next-line no-console
+  console.log(timestampedMessage, ...args);
+  logger.warn(timestampedMessage, ...args);
+};
+const logWarning = (message) => {
+  // eslint-disable-next-line no-console
+  console.log(`[${getSocketTimestamp()}] ${message}`);
+  logger.warn(message);
+};
 const users = {};
 const connections = [];
 
@@ -63,6 +72,8 @@ function getSocketLifecycleDetails(socket, event, reason, user, timestamp, extra
 
 function logSocketLifecycle(socket, event, reason, user, extra) {
   const timestamp = getSocketTimestamp();
+  // eslint-disable-next-line no-console
+  console.log(`[${timestamp}] Socket lifecycle ${getSocketLifecycleDetails(socket, event, reason, user, timestamp, extra)}`);
   logger.warn(`[${timestamp}] Socket lifecycle ${getSocketLifecycleDetails(socket, event, reason, user, timestamp, extra)}`);
 }
 

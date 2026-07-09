@@ -44,6 +44,8 @@ if (config.util.getEnv('NODE_ENV') === 'test') {
 }
 
 debug(`starting application with environment: ${config.util.getEnv('NODE_ENV')}`);
+// eslint-disable-next-line no-console
+console.log(`[${new Date().toISOString()}] starting application with environment: ${config.util.getEnv('NODE_ENV')}`);
 appLogger.warn(`starting application with environment: ${config.util.getEnv('NODE_ENV')}`);
 
 app.use(corsHandler);
@@ -51,9 +53,13 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(express.text());
 
+// eslint-disable-next-line no-console
+console.log(`[${new Date().toISOString()}] Applying auth checker user only filter`);
 appLogger.warn('Applying auth checker user only filter');
 app.use(authCheckerUserOnlyFilter);
 
+// eslint-disable-next-line no-console
+console.log(`[${new Date().toISOString()}] Mounting activity route at /`);
 appLogger.warn('Mounting activity route at /');
 app.use('/', activity);
 
@@ -69,12 +75,16 @@ app.use((req, res, next) => {
 /* eslint-disable no-unused-vars */
 app.use((err, req, res, next) => {
   debug(`Error processing request: ${err}`);
+  // eslint-disable-next-line no-console
+  console.log(`[${new Date().toISOString()}] Error processing request: ${err}`);
   appLogger.warn(`Error processing request: ${err}`);
 
   // set locals, only providing error in development
   res.locals.message = err.message;
   res.locals.error = req.app.get('env') === 'development' ? err : {};
 
+  // eslint-disable-next-line no-console
+  console.log(`[${new Date().toISOString()}] Returning error response: ${err.status || 500} - ${err.message}`);
   appLogger.warn(`Returning error response: ${err.status || 500} - ${err.message}`);
 
   res.status(err.status || 500);

@@ -16,6 +16,10 @@ function createSocketHandlers(activityService, socketServer) {
     // Update what's being watched.
     utils.watch.update(socket, [caseId]);
 
+    // eslint-disable-next-line no-console
+    console.log(
+      `[${new Date().toISOString()}] Adding activity for caseId ${caseId} user ${JSON.stringify(user)} activity ${activity}`
+    );
     logger.warn(
       `Adding activity for caseId ${caseId} user ${JSON.stringify(user)} activity ${activity}`
     );
@@ -31,6 +35,8 @@ function createSocketHandlers(activityService, socketServer) {
    */
   async function notify(caseId, options = {}) {
     const cs = await activityService.getActivityForCases([caseId]);
+    // eslint-disable-next-line no-console
+    console.log(`[${new Date().toISOString()}] notifying case activity: ${JSON.stringify(cs)}`);
     logger.warn(`notifying case activity: ${JSON.stringify(cs)}`);
     // With the Redis adapter enabled, each node receives the same case-change
     // pub/sub signal. Emit locally so each connected client sees one message.
@@ -48,6 +54,8 @@ function createSocketHandlers(activityService, socketServer) {
    * @param {*} socketId The id of the socket to remove activity for.
    */
   async function removeSocketActivity(socketId) {
+    // eslint-disable-next-line no-console
+    console.log(`[${new Date().toISOString()}] Removing socket activity for socketId ${socketId}`);
     logger.warn(`Removing socket activity for socketId ${socketId}`);
     await activityService.removeSocketActivity(socketId);
   }
@@ -74,6 +82,8 @@ function createSocketHandlers(activityService, socketServer) {
 
   async function stop(socket, caseId) {
     // Stop watching the current cases.
+    // eslint-disable-next-line no-console
+    console.log(`[${new Date().toISOString()}] Stop watching cases to ${caseId} for socket ${socket.id}`);
     logger.warn(`Stop watching cases to ${caseId} for socket ${socket.id}`);
     if (caseId) {
       socket.leave(keys.case.base(caseId));

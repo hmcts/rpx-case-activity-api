@@ -11,6 +11,8 @@ function createSocketActivityService(config, redis) {
   };
 
   const notifyChange = (caseId, excludedSocketId) => {
+    // eslint-disable-next-line no-console
+    console.log(`[${new Date().toISOString()}] Notifying change for caseId ${caseId}`);
     logger.warn(`Notifying change for caseId ${caseId}`);
     if (caseId) {
       const message = excludedSocketId
@@ -21,9 +23,13 @@ function createSocketActivityService(config, redis) {
   };
 
   const getSocketActivity = async (socketId) => {
+    // eslint-disable-next-line no-console
+    console.log(`[${new Date().toISOString()}] Getting socket activity for socketId ${socketId}`);
     logger.warn(`Getting socket activity for socketId ${socketId}`);
     if (socketId) {
       const key = keys.socket(socketId);
+      // eslint-disable-next-line no-console
+      console.log(`[${new Date().toISOString()}] Socket activity key: ${key}`);
       logger.warn(`Socket activity key: ${key}`);
       return JSON.parse(await redis.get(key));
     }
@@ -31,8 +37,12 @@ function createSocketActivityService(config, redis) {
   };
 
   const getUserDetails = async (userIds) => {
+    // eslint-disable-next-line no-console
+    console.log(`[${new Date().toISOString()}] Getting user details for userIds ${userIds}`);
     logger.warn(`Getting user details for userIds ${userIds}`);
     if (Array.isArray(userIds) && userIds.length > 0) {
+      // eslint-disable-next-line no-console
+      console.log(`[${new Date().toISOString()}] Fetching user details from redis`);
       logger.warn('Fetching user details from redis');
       // Get hold of the details.
       const details = await redis.pipeline(utils.get.users(userIds)).exec();
@@ -49,6 +59,8 @@ function createSocketActivityService(config, redis) {
   };
 
   const doRemoveActivity = async (socketId, removeSocketEntry = false) => {
+    // eslint-disable-next-line no-console
+    console.log(`[${new Date().toISOString()}] Removing activity for socketId ${socketId} removeSocketEntry=${removeSocketEntry}`);
     logger.warn(
       `Removing activity for socketId ${socketId} removeSocketEntry=${removeSocketEntry}`
     );
@@ -94,6 +106,11 @@ function createSocketActivityService(config, redis) {
   };
 
   const addActivity = async (caseId, user, socketId, activity) => {
+    // eslint-disable-next-line no-console
+    console.log(
+      `[${new Date().toISOString()}] adding activity for caseId '${caseId}', user ${JSON.stringify(user)} `
+      + `on socket '${socketId}' with activity '${activity}'`
+    );
     logger.warn(
       `adding activity for caseId '${caseId}', user ${JSON.stringify(user)} `
       + `on socket '${socketId}' with activity '${activity}'`

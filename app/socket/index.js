@@ -14,7 +14,12 @@ const { redisReconnectDelay } = require('../redis/reconnect-strategy');
 
 const logger = Logger.getLogger('socket-index');
 const getSocketTimestamp = () => new Date().toISOString();
-const logSocketWarning = (message, ...args) => logger.warn(`[${getSocketTimestamp()}] ${message}`, ...args);
+const logSocketWarning = (message, ...args) => {
+  const timestampedMessage = `[${getSocketTimestamp()}] ${message}`;
+  // eslint-disable-next-line no-console
+  console.log(timestampedMessage, ...args);
+  logger.warn(timestampedMessage, ...args);
+};
 
 function buildRedisAdapterOptions(redisUrl, useTLS) {
   return {

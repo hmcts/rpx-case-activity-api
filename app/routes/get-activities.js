@@ -6,12 +6,16 @@ const logger = Logger.getLogger('get-activities');
 const { ifNotTimedOut } = utils;
 
 const getActivities = (activityService) => (req, res, next) => {
+  // eslint-disable-next-line no-console
+  console.log(`[${new Date().toISOString()}] GET_ACTIVITIES request received at ${new Date().toISOString()}`);
   logger.warn(`GET_ACTIVITIES request received at ${new Date().toISOString()}`);
 
   const caseIds = req.params.caseids.split(',');
   const { user } = req.authentication;
   const { token } = req.authentication;
 
+  // eslint-disable-next-line no-console
+  console.log(`[${new Date().toISOString()}] GET_ACTIVITIES request for caseIds: ${caseIds}`);
   logger.warn(`GET_ACTIVITIES request for caseIds: ${caseIds}`);
 
   debug(`GET_ACTIVITIES request for caseIds: ${caseIds}`);

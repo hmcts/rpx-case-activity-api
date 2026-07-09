@@ -13,6 +13,8 @@ const blacklist = config.get('security.auth_blacklist')
 const isUserAuthorized = (request, user) => {
   const authorized = authorizer.isUserAuthorized(user.roles, whitelist, blacklist);
   debug(`user roles authorized: ${authorized}`);
+  // eslint-disable-next-line no-console
+  console.log(`[${new Date().toISOString()}] user roles authorized: ${authorized}`);
   logger.warn(`user roles authorized: ${authorized}`);
   return authorized;
 };
