@@ -47,7 +47,7 @@ See [redis documentation](https://redis.io) for details
 Configuration is achieved through [node-config](https://github.com/lorenwest/node-config).
 
 
-## Unit tests
+## Unit tests.
 The tests can be run using:
 
 ```
