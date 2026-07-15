@@ -3,10 +3,10 @@ const keys = require('../redis/keys');
 const utils = require('../utils');
 
 const logger = Logger.getLogger('socket-activity-service');
-const userForLog = (user) => user ? {
+const userForLog = (user) => (user ? {
   uid: user.uid,
   name: user.name
-} : null;
+} : null);
 
 function createSocketActivityService(config, redis) {
   const socketOperations = new Map();
@@ -115,24 +115,27 @@ function createSocketActivityService(config, redis) {
     ]).exec();
   };
 
-  const addActivity = (caseId, user, socketId, activity) => runSocketOperation(socketId, async () => {
-    logger.warn(
-      `adding activity for caseId '${caseId}', user ${JSON.stringify(userForLog(user))} `
-      + `on socket '${socketId}' with activity '${activity}'`
-    );
-    if (caseId && user && socketId && activity) {
-      // First, clear out any existing activity on this socket.
-      const removedCaseId = await doRemoveSocketActivity(socketId);
+  const addActivity = (caseId, user, socketId, activity) => runSocketOperation(
+    socketId,
+    async () => {
+      logger.warn(
+        `adding activity for caseId '${caseId}', user ${JSON.stringify(userForLog(user))} `
+        + `on socket '${socketId}' with activity '${activity}'`
+      );
+      if (caseId && user && socketId && activity) {
+        // First, clear out any existing activity on this socket.
+        const removedCaseId = await doRemoveSocketActivity(socketId);
 
-      // Now store this activity.
-      await doAddActivity(caseId, user, socketId, activity);
-      if (removedCaseId !== caseId) {
-        notifyChange(removedCaseId, socketId);
+        // Now store this activity.
+        await doAddActivity(caseId, user, socketId, activity);
+        if (removedCaseId !== caseId) {
+          notifyChange(removedCaseId, socketId);
+        }
+        notifyChange(caseId);
       }
-      notifyChange(caseId);
+      return null;
     }
-    return null;
-  });
+  );
 
   // Renew the sorted-set score and supporting Redis keys from the existing
   // Engine.IO heartbeat. This keeps a healthy long-lived socket visible beyond

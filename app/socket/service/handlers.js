@@ -3,10 +3,10 @@ const keys = require('../redis/keys');
 const utils = require('../utils');
 
 const logger = Logger.getLogger('socket-service-handlers');
-const userForLog = (user) => user ? {
+const userForLog = (user) => (user ? {
   uid: user.uid,
   name: user.name
-} : null;
+} : null);
 
 function createSocketHandlers(activityService, socketServer) {
   const activeSocketIds = new Set();
