@@ -1,6 +1,5 @@
 const { Logger } = require('@hmcts/nodejs-logging');
 const config = require('config');
-const IORouter = require('socket.io-router-middleware');
 const SocketIO = require('socket.io');
 // Missing imports — REQUIRED for Redis Adapter
 const { createClient } = require('redis');
@@ -191,7 +190,7 @@ function createSocketServer(server, redis) {
   const handlers = Handlers(activityService, socketServer);
 
   logSocketWarning('Initializing router for socket server');
-  router.init(socketServer, new IORouter(), handlers);
+  router.init(socketServer, handlers);
 
   logSocketWarning('Initializing pubsub for socket server');
   try {

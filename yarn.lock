@@ -5126,13 +5126,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"route-parser@npm:^0.0.5":
-  version: 0.0.5
-  resolution: "route-parser@npm:0.0.5"
-  checksum: 10/d66f1b9e8ea4f22097f17a3a4a998acc02734aa3874194cbd46561ca355df7e78769c8d589a2bcb2bc2caa855a1f52dc46cf1affb6b2e6ab71826920cd8fe41c
-  languageName: node
-  linkType: hard
-
 "router@npm:^2.2.0":
   version: 2.2.0
   resolution: "router@npm:2.2.0"
@@ -5190,8 +5183,7 @@ __metadata:
     sinon: "npm:^18.0.1"
     sinon-chai: "npm:^3.5.0"
     sinon-express-mock: "npm:^2.2.1"
-    socket.io: "npm:^4.8.1"
-    socket.io-router-middleware: "npm:^1.1.2"
+    socket.io: "npm:^4.8.3"
     sonar-scanner: "npm:^3.1.0"
     supertest: "npm:^7.1.4"
     yarn: "npm:^1.22.22"
@@ -5509,16 +5501,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"socket.io-router-middleware@npm:^1.1.2":
-  version: 1.1.2
-  resolution: "socket.io-router-middleware@npm:1.1.2"
-  dependencies:
-    route-parser: "npm:^0.0.5"
-  checksum: 10/fecc2c304411766e3b26555826ab173bde874a6fc7e1dd28ba2cc3cb286bdd012958de68a164af38e0180255c322a2a522dc3cb1523e5cb97fab83673bc9aa31
-  languageName: node
-  linkType: hard
-
-"socket.io@npm:^4.8.1":
+"socket.io@npm:^4.8.3":
   version: 4.8.3
   resolution: "socket.io@npm:4.8.3"
   dependencies:

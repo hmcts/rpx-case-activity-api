@@ -155,6 +155,30 @@ function runHandler(handler, next) {
   return null;
 }
 
+function buildSocketContext(route, request) {
+  return {
+    request: {
+      route,
+      params: {},
+      ...(request && typeof request === 'object' ? request : {})
+    },
+    response: {}
+  };
+}
+
+function emitSocketHandlerError(socket, eventName, user, error) {
+  logSocketLifecycle(
+    socket,
+    'handler-error',
+    error?.message || String(error),
+    user,
+    {
+      eventName,
+      error: formatError(error)
+    }
+  );
+}
+
 const router = {
   addUser: (socketId, user) => {
     if (user && !user.name) {
@@ -180,34 +204,46 @@ const router = {
   getConnections: () => {
     return [...connections];
   },
-  init: (io, iorouter, handlers) => {
+  init: (io, handlers) => {
     logSocketWarning('Initializing socket router');
-    // Set up routes for each type of message.
-    iorouter.on('view', (socket, ctx, next) => {
+    const registerSocketRoute = (socket, eventName, handler) => {
+      socket.on(eventName, (request = {}) => {
+        runHandler(
+          () => handler(socket, buildSocketContext(eventName, request)),
+          (error) => {
+            if (error) {
+              emitSocketHandlerError(socket, eventName, router.getUser(socket.id), error);
+            }
+          }
+        );
+      });
+    };
+
+    const handleView = (socket, ctx) => {
       const user = router.getUser(socket.id);
       utils.log(socket, `${ctx.request.caseId} (${user.name})`, 'view');
-      return runHandler(() => handlers.addActivity(socket, ctx.request.caseId, user, 'view'), next);
-    });
-    iorouter.on('edit', (socket, ctx, next) => {
+      return handlers.addActivity(socket, ctx.request.caseId, user, 'view');
+    };
+    const handleEdit = (socket, ctx) => {
       const user = router.getUser(socket.id);
       utils.log(socket, `${ctx.request.caseId} (${user.name})`, 'edit');
-      return runHandler(() => handlers.addActivity(socket, ctx.request.caseId, user, 'edit'), next);
-    });
-    iorouter.on('watch', (socket, ctx, next) => {
+      return handlers.addActivity(socket, ctx.request.caseId, user, 'edit');
+    };
+    const handleWatch = (socket, ctx) => {
       const user = router.getUser(socket.id);
       utils.log(socket, `${ctx.request.caseIds} (${user.name})`, 'watch');
-      return runHandler(() => handlers.watch(socket, ctx.request.caseIds), next);
-    });
-    iorouter.on('stop', (socket, ctx, next) => {
+      return handlers.watch(socket, ctx.request.caseIds);
+    };
+    const handleStop = (socket, ctx) => {
       const user = router.getUser(socket.id);
       utils.log(socket, `${ctx.request.caseId} (${user.name})`, 'stop');
-      return runHandler(() => handlers.stop(socket, ctx.request.caseId, user, 'stop'), next);
-    });
-    iorouter.on('stopAll', (socket, ctx, next) => {
+      return handlers.stop(socket, ctx.request.caseId, user, 'stop');
+    };
+    const handleStopAll = (socket, ctx) => {
       const user = router.getUser(socket.id);
       utils.log(socket, `${ctx.request.caseIds} (${user.name})`, 'stopAll');
-      return runHandler(() => handlers.stopAll(socket, ctx.request.caseIds), next);
-    });
+      return handlers.stopAll(socket, ctx.request.caseIds);
+    };
 
     // On client connection, attach the router and track the socket.
     io.on('connection', (socket) => {
@@ -237,9 +273,11 @@ const router = {
         getDiagnostics()
       );
       utils.log(socket, '', `connected (${router.getConnections().length} total)`);
-      socket.use((packet, next) => {
-        iorouter.attach(socket, packet, next);
-      });
+      registerSocketRoute(socket, 'view', handleView);
+      registerSocketRoute(socket, 'edit', handleEdit);
+      registerSocketRoute(socket, 'watch', handleWatch);
+      registerSocketRoute(socket, 'stop', handleStop);
+      registerSocketRoute(socket, 'stopAll', handleStopAll);
 
       socket.on('disconnecting', (reason) => {
         logSocketLifecycle(

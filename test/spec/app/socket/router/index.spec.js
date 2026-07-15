@@ -25,13 +25,6 @@ describe('socket.router', () => {
       }
     }
   };
-  const MOCK_IO_ROUTER = {
-    ...createMockEventEmitter(),
-    attachments: [],
-    attach: (socket, packet, next) => {
-      MOCK_IO_ROUTER.attachments.push({ socket, packet, next });
-    }
-  };
   const MOCK_HANDLERS = {
     calls: [],
     stopPromise: null,
@@ -131,13 +124,11 @@ describe('socket.router', () => {
   };
 
   beforeEach(() => {
-    router.init(MOCK_SOCKET_SERVER, MOCK_IO_ROUTER, MOCK_HANDLERS);
+    router.init(MOCK_SOCKET_SERVER, MOCK_HANDLERS);
   });
 
   afterEach(() => {
     MOCK_SOCKET_SERVER.events = {};
-    MOCK_IO_ROUTER.events = {};
-    MOCK_IO_ROUTER.attachments.length = 0;
     MOCK_HANDLERS.calls.length = 0;
     MOCK_HANDLERS.stopPromise = null;
     MOCK_SOCKET.using.length = 0;
@@ -151,12 +142,6 @@ describe('socket.router', () => {
       const EXPECTED_EVENTS = ['connection'];
       EXPECTED_EVENTS.forEach((event) => {
         expect(MOCK_SOCKET_SERVER.events[event]).to.be.a('function');
-      });
-    });
-    it('should have set up the appropriate events on the io router', () => {
-      const EXPECTED_EVENTS = ['view', 'edit', 'watch', 'stop', 'stopAll'];
-      EXPECTED_EVENTS.forEach((event) => {
-        expect(MOCK_IO_ROUTER.events[event]).to.be.a('function');
       });
     });
     it('should accept the legacy query user when auth is not present', () => {
@@ -173,7 +158,7 @@ describe('socket.router', () => {
     });
   });
 
-  describe('iorouter', () => {
+  describe('socket routes', () => {
     const MOCK_CONTEXT = {
       request: {
         caseId: '1234567890',
@@ -182,10 +167,12 @@ describe('socket.router', () => {
     };
     const MOCK_JSON_USER = MOCK_SOCKET.handshake.auth.user;
 
-    const testActivityHandler = (activity, expectedMethod = 'addActivity', expectedContext = MOCK_CONTEXT) => {
-      let nextCalled = false;
-      MOCK_IO_ROUTER.dispatch(activity, MOCK_SOCKET, expectedContext, () => {
-        nextCalled = true;
+    const testActivityHandler = async (
+      activity,
+      expectedMethod = 'addActivity',
+      expectedContext = MOCK_CONTEXT
+    ) => {
+      await MOCK_SOCKET.dispatch(activity, expectedContext.request);
         expect(MOCK_HANDLERS.calls).to.have.lengthOf(1);
         expect(MOCK_HANDLERS.calls[0].method).to.equal(expectedMethod);
         expect(MOCK_HANDLERS.calls[0].params.socket).to.equal(MOCK_SOCKET);
@@ -203,8 +190,6 @@ describe('socket.router', () => {
           expect(MOCK_HANDLERS.calls[0].params.user).to.deep.equal(MOCK_JSON_USER);
           expect(MOCK_HANDLERS.calls[0].params.activity).to.equal(activity);
         }
-      });
-      expect(nextCalled).to.be.true;
     };
 
     beforeEach(() => {
@@ -216,37 +201,31 @@ describe('socket.router', () => {
       expect(router.getUser(MOCK_SOCKET.id)).to.deep.equal(MOCK_JSON_USER);
     });
 
-    it('should appropriately handle viewing a case', () => {
-      testActivityHandler('view');
+    it('should appropriately handle viewing a case', async () => {
+      await testActivityHandler('view');
     });
-
-    it('should appropriately handle editing a case', () => {
-      testActivityHandler('edit');
+    it('should appropriately handle editing a case', async () => {
+      await testActivityHandler('edit');
     });
-    it('should appropriately handle watching cases', () => {
-      testActivityHandler('watch', 'watch');
+    it('should appropriately handle watching cases', async () => {
+      await testActivityHandler('watch', 'watch');
     });
-    it('should appropriately handle stopping activity', () => {
-      testActivityHandler('stop', 'stop');
+    it('should appropriately handle stopping activity', async () => {
+      await testActivityHandler('stop', 'stop');
     });
-    it('should appropriately handle stopping all cases', () => {
-      testActivityHandler('stopAll', 'stopAll');
+    it('should appropriately handle stopping all cases', async () => {
+      await testActivityHandler('stopAll', 'stopAll');
     });
     it('should wait for async stop handling before continuing', async () => {
       let resolveStop;
       MOCK_HANDLERS.stopPromise = new Promise((resolve) => {
         resolveStop = resolve;
       });
-      let nextCalled = false;
-
-      const dispatchPromise = MOCK_IO_ROUTER.dispatch('stop', MOCK_SOCKET, MOCK_CONTEXT, () => {
-        nextCalled = true;
-      });
-
-      expect(nextCalled).to.be.false;
+      const dispatchPromise = MOCK_SOCKET.dispatch('stop', MOCK_CONTEXT.request);
+      expect(MOCK_HANDLERS.calls).to.have.lengthOf(1);
       resolveStop();
       await dispatchPromise;
-      expect(nextCalled).to.be.true;
+      expect(MOCK_HANDLERS.calls[0].method).to.equal('stop');
     });
   });
 
@@ -258,8 +237,11 @@ describe('socket.router', () => {
     it('should appropriately handle a new connection', () => {
       expect(router.getConnections()).to.have.lengthOf(1)
         .and.to.contain(MOCK_SOCKET);
-      expect(MOCK_SOCKET.using).to.have.lengthOf(1);
-      expect(MOCK_SOCKET.using[0]).to.be.a('function');
+      expect(MOCK_SOCKET.events.view).to.be.a('function');
+      expect(MOCK_SOCKET.events.edit).to.be.a('function');
+      expect(MOCK_SOCKET.events.watch).to.be.a('function');
+      expect(MOCK_SOCKET.events.stop).to.be.a('function');
+      expect(MOCK_SOCKET.events.stopAll).to.be.a('function');
       expect(MOCK_SOCKET.events.disconnect).to.be.a('function');
       expect(MOCK_SOCKET.events.disconnecting).to.be.a('function');
       expect(MOCK_SOCKET.events.error).to.be.a('function');
@@ -268,18 +250,6 @@ describe('socket.router', () => {
       expect(MOCK_SOCKET.conn.events.upgrade).to.be.a('function');
       expect(MOCK_SOCKET.conn.events.packet).to.be.a('function');
       expect(MOCK_SOCKET.conn.events.packetCreate).to.be.a('function');
-    });
-    it('should handle a socket use', () => {
-      const useFn = MOCK_SOCKET.using[0];
-      const PACKET = 'packet';
-      const NEXT_FN = () => {};
-
-      expect(MOCK_IO_ROUTER.attachments).to.have.lengthOf(0);
-      useFn(PACKET, NEXT_FN);
-      expect(MOCK_IO_ROUTER.attachments).to.have.lengthOf(1);
-      expect(MOCK_IO_ROUTER.attachments[0].socket).to.equal(MOCK_SOCKET);
-      expect(MOCK_IO_ROUTER.attachments[0].packet).to.equal(PACKET);
-      expect(MOCK_IO_ROUTER.attachments[0].next).to.equal(NEXT_FN);
     });
     it('should handle a socket disconnecting', () => {
       MOCK_SOCKET.dispatch('disconnecting', 'transport close');
