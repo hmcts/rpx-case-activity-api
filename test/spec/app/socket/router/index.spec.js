@@ -16,7 +16,15 @@ describe('socket.router', () => {
     }
   });
 
-  const MOCK_SOCKET_SERVER = createMockEventEmitter();
+  const MOCK_SOCKET_SERVER = {
+    ...createMockEventEmitter(),
+    engine: {
+      opts: {
+        pingInterval: 25000,
+        pingTimeout: 20000
+      }
+    }
+  };
   const MOCK_IO_ROUTER = {
     ...createMockEventEmitter(),
     attachments: [],
@@ -259,6 +267,7 @@ describe('socket.router', () => {
       expect(MOCK_SOCKET.conn.events.error).to.be.a('function');
       expect(MOCK_SOCKET.conn.events.upgrade).to.be.a('function');
       expect(MOCK_SOCKET.conn.events.packet).to.be.a('function');
+      expect(MOCK_SOCKET.conn.events.packetCreate).to.be.a('function');
     });
     it('should handle a socket use', () => {
       const useFn = MOCK_SOCKET.using[0];
@@ -297,6 +306,7 @@ describe('socket.router', () => {
       expect(MOCK_HANDLERS.calls).to.have.lengthOf(0);
     });
     it('should refresh socket activity when an Engine.IO pong is received', async () => {
+      MOCK_SOCKET.conn.dispatch('packetCreate', { type: 'ping' });
       await MOCK_SOCKET.conn.dispatch('packet', { type: 'pong' });
 
       expect(MOCK_HANDLERS.calls).to.have.lengthOf(1);

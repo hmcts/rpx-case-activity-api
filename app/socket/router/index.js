@@ -55,6 +55,28 @@ function formatError(error) {
   };
 }
 
+function formatHeartbeatTimestamp(timestamp) {
+  return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : null;
+}
+
+function getElapsedMillis(timestamp) {
+  return Number.isFinite(timestamp) ? Math.max(Date.now() - timestamp, 0) : null;
+}
+
+function getHeartbeatDiagnostics(heartbeatState, io) {
+  return {
+    lastPingSentAt: formatHeartbeatTimestamp(heartbeatState.lastPingSentAt),
+    millisSinceLastPingSent: getElapsedMillis(heartbeatState.lastPingSentAt),
+    lastPongReceivedAt: formatHeartbeatTimestamp(heartbeatState.lastPongReceivedAt),
+    millisSinceLastPongReceived: getElapsedMillis(heartbeatState.lastPongReceivedAt),
+    lastHeartbeatPacketAt: formatHeartbeatTimestamp(heartbeatState.lastHeartbeatPacketAt),
+    millisSinceLastHeartbeatPacket: getElapsedMillis(heartbeatState.lastHeartbeatPacketAt),
+    lastHeartbeatPacketType: heartbeatState.lastHeartbeatPacketType,
+    pingIntervalMs: io?.engine?.opts?.pingInterval ?? null,
+    pingTimeoutMs: io?.engine?.opts?.pingTimeout ?? null
+  };
+}
+
 function getConnectionDiagnostics(socket, connectedAt) {
   return {
     connectionDurationMs: Math.max(Date.now() - connectedAt, 0),
@@ -190,6 +212,12 @@ const router = {
     // On client connection, attach the router and track the socket.
     io.on('connection', (socket) => {
       const connectedAt = Date.now();
+      const heartbeatState = {
+        lastPingSentAt: null,
+        lastPongReceivedAt: null,
+        lastHeartbeatPacketAt: null,
+        lastHeartbeatPacketType: null
+      };
 
       router.addConnection(socket);
       const userObj = parseHandshakeUser(socket);
@@ -197,6 +225,7 @@ const router = {
       const getSocketUser = () => router.getUser(socket.id) || userObj;
       const getDiagnostics = (extra = {}) => ({
         ...getConnectionDiagnostics(socket, connectedAt),
+        ...getHeartbeatDiagnostics(heartbeatState, io),
         connectionCount: router.getConnections().length,
         ...extra
       });
@@ -243,6 +272,9 @@ const router = {
         });
         socket.conn.on('packet', (packet) => {
           if (packet?.type === 'pong') {
+            heartbeatState.lastPongReceivedAt = Date.now();
+            heartbeatState.lastHeartbeatPacketAt = heartbeatState.lastPongReceivedAt;
+            heartbeatState.lastHeartbeatPacketType = 'pong-received';
             handlers.refreshSocketActivity(socket, getSocketUser()).catch((error) => {
               logSocketLifecycle(
                 socket,
@@ -252,6 +284,13 @@ const router = {
                 getDiagnostics({ error: formatError(error) })
               );
             });
+          }
+        });
+        socket.conn.on('packetCreate', (packet) => {
+          if (packet?.type === 'ping') {
+            heartbeatState.lastPingSentAt = Date.now();
+            heartbeatState.lastHeartbeatPacketAt = heartbeatState.lastPingSentAt;
+            heartbeatState.lastHeartbeatPacketType = 'ping-sent';
           }
         });
         socket.conn.on('close', (reason, description) => {
