@@ -38,8 +38,6 @@ function redisReconnectDelay(retries) {
   // Keep Redis reconnect attempts periodic and bounded between the configured limits.
   const delayMs = minDelayMs + ((retryCount - 1) * RETRY_STEP_MS);
 
-  // eslint-disable-next-line no-console
-  console.log(`[${new Date().toISOString()}] Redis reconnect attempt #${retryCount}, delaying for ${delayMs}ms`);
   logger.warn(`Redis reconnect attempt #${retryCount}, delaying for ${delayMs}ms`);
 
   return Math.min(delayMs, maxDelayMs);

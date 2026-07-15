@@ -5,17 +5,15 @@ const logger = Logger.getLogger('index-socket-router');
 const getSocketTimestamp = () => new Date().toISOString();
 const logSocketWarning = (message, ...args) => {
   const timestampedMessage = `[${getSocketTimestamp()}] ${message}`;
-  // eslint-disable-next-line no-console
-  console.log(timestampedMessage, ...args);
   logger.warn(timestampedMessage, ...args);
-};
-const logWarning = (message) => {
-  // eslint-disable-next-line no-console
-  console.log(`[${getSocketTimestamp()}] ${message}`);
-  logger.warn(message);
 };
 const users = {};
 const connections = [];
+
+function getHeader(socket, name) {
+  const value = socket?.handshake?.headers?.[name];
+  return Array.isArray(value) ? value.join(',') : value;
+}
 
 function normaliseRooms(socket) {
   if (!socket?.rooms) {
@@ -54,6 +52,20 @@ function formatError(error) {
   };
 }
 
+function getConnectionDiagnostics(socket, connectedAt) {
+  return {
+    connectionDurationMs: Math.max(Date.now() - connectedAt, 0),
+    podName: process.env.HOSTNAME,
+    forwardedFor: getHeader(socket, 'x-forwarded-for'),
+    requestId: getHeader(socket, 'x-request-id')
+      || getHeader(socket, 'x-correlation-id'),
+    userAgent: getHeader(socket, 'user-agent'),
+    origin: getHeader(socket, 'origin'),
+    engineReadyState: socket?.conn?.readyState,
+    transportWritable: socket?.conn?.transport?.writable
+  };
+}
+
 function getSocketLifecycleDetails(socket, event, reason, user, timestamp, extra = {}) {
   return JSON.stringify({
     event,
@@ -72,8 +84,6 @@ function getSocketLifecycleDetails(socket, event, reason, user, timestamp, extra
 
 function logSocketLifecycle(socket, event, reason, user, extra) {
   const timestamp = getSocketTimestamp();
-  // eslint-disable-next-line no-console
-  console.log(`[${timestamp}] Socket lifecycle ${getSocketLifecycleDetails(socket, event, reason, user, timestamp, extra)}`);
   logger.warn(`[${timestamp}] Socket lifecycle ${getSocketLifecycleDetails(socket, event, reason, user, timestamp, extra)}`);
 }
 
@@ -146,7 +156,7 @@ const router = {
 
     // On client connection, attach the router and track the socket.
     io.on('connection', (socket) => {
-      logSocketWarning(`Socket connected: ${socket.id}`);
+      const connectedAt = Date.now();
 
       router.addConnection(socket);
       let userObj = null;
@@ -154,33 +164,65 @@ const router = {
         try {
           userObj = JSON.parse(socket.handshake.query.user);
         } catch (e) {
-          utils.log(socket, '', 'Failed to parse user from handshake query', logWarning, getSocketTimestamp());
           logSocketWarning(`Failed to parse user from handshake query: ${e.message}`);
         }
       }
       router.addUser(socket.id, userObj);
       const getSocketUser = () => router.getUser(socket.id) || userObj;
-      utils.log(socket, '', `connected (${router.getConnections().length} total)`);
-      logSocketWarning(`Socket connected: ${socket.id} for user ${userObj ? userObj.name : 'unknown'}`);
-
-      utils.log(
+      const getDiagnostics = (extra = {}) => ({
+        ...getConnectionDiagnostics(socket, connectedAt),
+        connectionCount: router.getConnections().length,
+        ...extra
+      });
+      logSocketLifecycle(
         socket,
-        '',
-        `connected (${router.getConnections().length} total)`,
-        logWarning,
-        getSocketTimestamp()
+        'connection',
+        'client connected',
+        getSocketUser(),
+        getDiagnostics()
       );
+      utils.log(socket, '', `connected (${router.getConnections().length} total)`);
       socket.use((packet, next) => {
         iorouter.attach(socket, packet, next);
       });
 
       socket.on('disconnecting', (reason) => {
-        logSocketLifecycle(socket, 'disconnecting', reason, getSocketUser());
+        logSocketLifecycle(
+          socket,
+          'disconnecting',
+          reason,
+          getSocketUser(),
+          getDiagnostics()
+        );
       });
 
       if (socket.conn && typeof socket.conn.on === 'function') {
-        socket.conn.on('close', (reason) => {
-          logSocketLifecycle(socket, 'engine-close', reason, getSocketUser());
+        socket.conn.on('upgrade', (transport) => {
+          logSocketLifecycle(
+            socket,
+            'transport-upgrade',
+            'transport upgraded',
+            getSocketUser(),
+            getDiagnostics({ upgradedTransport: transport?.name })
+          );
+        });
+        socket.conn.on('error', (error) => {
+          logSocketLifecycle(
+            socket,
+            'engine-error',
+            error?.message || String(error),
+            getSocketUser(),
+            getDiagnostics({ error: formatError(error) })
+          );
+        });
+        socket.conn.on('close', (reason, description) => {
+          logSocketLifecycle(
+            socket,
+            'engine-close',
+            reason,
+            getSocketUser(),
+            getDiagnostics({ closeDescription: formatError(description) })
+          );
         });
       }
 
@@ -190,23 +232,21 @@ const router = {
           'error',
           error?.message || String(error),
           getSocketUser(),
-          { error: formatError(error) }
+          getDiagnostics({ error: formatError(error) })
         );
       });
 
       // When the socket disconnects, do an appropriate teardown.
       socket.on('disconnect', (reason) => {
-        logSocketLifecycle(socket, 'disconnect', reason, getSocketUser());
-        logSocketWarning(`Socket disconnected: ${socket.id}`);
+        logSocketLifecycle(
+          socket,
+          'disconnect',
+          reason,
+          getSocketUser(),
+          getDiagnostics({ connectionCount: router.getConnections().length - 1 })
+        );
 
         utils.log(socket, '', `disconnected (${router.getConnections().length - 1} total)`);
-        utils.log(
-          socket,
-          '',
-          `disconnected (${router.getConnections().length - 1} total)`,
-          logWarning,
-          getSocketTimestamp()
-        );
         handlers.removeSocketActivity(socket.id);
         router.removeUser(socket.id);
         router.removeConnection(socket);

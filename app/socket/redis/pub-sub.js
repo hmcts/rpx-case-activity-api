@@ -11,8 +11,6 @@ function parseMessage(message) {
   try {
     return JSON.parse(message);
   } catch (error) {
-    // eslint-disable-next-line no-console
-    console.log(`[${new Date().toISOString()}] Failed to parse Redis pub-sub message`, error);
     logger.warn('Failed to parse Redis pub-sub message', error);
     return {};
   }

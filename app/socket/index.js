@@ -16,14 +16,37 @@ const logger = Logger.getLogger('socket-index');
 const getSocketTimestamp = () => new Date().toISOString();
 const logSocketWarning = (message, ...args) => {
   const timestampedMessage = `[${getSocketTimestamp()}] ${message}`;
-  // eslint-disable-next-line no-console
-  console.log(timestampedMessage, ...args);
   logger.warn(timestampedMessage, ...args);
 };
+
+const REDIS_PING_INTERVAL_MS = 5 * 60 * 1000;
+
+function formatEngineConnectionError(error) {
+  const request = error?.req;
+  const headers = request?.headers || {};
+  return JSON.stringify({
+    event: 'engine-connection-error',
+    timestamp: getSocketTimestamp(),
+    podName: process.env.HOSTNAME,
+    code: error?.code,
+    message: error?.message || String(error),
+    context: error?.context ? {
+      name: error.context.name,
+      message: error.context.message
+    } : undefined,
+    remoteAddress: request?.socket?.remoteAddress,
+    forwardedFor: headers['x-forwarded-for'],
+    requestId: headers['x-request-id'] || headers['x-correlation-id'],
+    userAgent: headers['user-agent'],
+    origin: headers.origin,
+  });
+}
 
 function buildRedisAdapterOptions(redisUrl, useTLS) {
   return {
     url: redisUrl,
+    // Keep idle adapter connections below Azure Redis' 10-minute idle timeout.
+    pingInterval: REDIS_PING_INTERVAL_MS,
     socket: {
       connectTimeout: 15000,
       tls: useTLS,
@@ -84,7 +107,9 @@ function createSocketServer(server, redis) {
         ? `${scheme}://:${encodeURIComponent(redisPwd)}@${redisHost}:${redisPort}`
         : `${scheme}://${redisHost}:${redisPort}`;
 
-      logSocketWarning(`[SOCKET.IO] Connecting to Redis at ${redisUrl} (TLS: ${useTLS})`);
+      logSocketWarning(
+        `[SOCKET.IO] Connecting to Redis at ${scheme}://${redisHost}:${redisPort} (TLS: ${useTLS})`
+      );
 
       const redisOptions = buildRedisAdapterOptions(redisUrl, useTLS);
 
@@ -93,10 +118,16 @@ function createSocketServer(server, redis) {
 
       const attachErrorHandlers = (client, name) => {
         client.on('error', (err) => {
-          logSocketWarning(`[SOCKET.IO][REDIS][${name}] redis client error: ${err?.message ?? err}`);
+          logSocketWarning(
+            `[SOCKET.IO][REDIS][${name}] redis client error: ${err?.message ?? err}`,
+            { code: err?.code, isOpen: client.isOpen, isReady: client.isReady }
+          );
         });
         client.on('connect', () => {
-          logSocketWarning(`[SOCKET.IO][REDIS][${name}] connected`);
+          logSocketWarning(`[SOCKET.IO][REDIS][${name}] connection opened`);
+        });
+        client.on('ready', () => {
+          logSocketWarning(`[SOCKET.IO][REDIS][${name}] ready`);
         });
         client.on('end', () => {
           logSocketWarning(`[SOCKET.IO][REDIS][${name}] connection ended`);
@@ -114,7 +145,9 @@ function createSocketServer(server, redis) {
 
       io.adapter(createAdapter(pubClient, subClient));
 
-      logSocketWarning('[SOCKET.IO] Redis adapter enabled');
+      logSocketWarning(
+        `[SOCKET.IO] Redis adapter enabled with ping interval ${REDIS_PING_INTERVAL_MS}ms`
+      );
     } catch (err) {
       logSocketWarning('[SOCKET.IO] Failed to enable Redis adapter', err);
     }
@@ -150,14 +183,14 @@ function createSocketServer(server, redis) {
   // LOG CONNECTION EVENTS
   // ---------------------------------------------------------
   //
-  // log connections and errors
-  socketServer.on('connection', (s) => {
-    // Socket Connected
-    logSocketWarning(`Socket connected: ${s.id} transport: ${s.conn.transport.name}`);
-  });
   socketServer.on('error', (err) => {
     logSocketWarning(`[SOCKET.IO] server error: ${err?.message ?? err}`);
   });
+  if (socketServer.engine && typeof socketServer.engine.on === 'function') {
+    socketServer.engine.on('connection_error', (err) => {
+      logSocketWarning(`[SOCKET.IO] ${formatEngineConnectionError(err)}`);
+    });
+  }
   return { socketServer, activityService, handlers };
 }
 

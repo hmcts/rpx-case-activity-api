@@ -52,6 +52,13 @@ describe('socket.router', () => {
   const MOCK_SOCKET = {
     id: 'socket-id',
     handshake: {
+      address: '10.0.0.1',
+      headers: {
+        'x-forwarded-for': '192.0.2.1',
+        'x-request-id': 'request-id',
+        'user-agent': 'socket-test-client',
+        origin: 'https://example.test'
+      },
       query: {
         user: JSON.stringify({ id: 'a', uid: 'idam-user-id', name: 'Bob Smith' })
       }
@@ -60,8 +67,10 @@ describe('socket.router', () => {
     conn: {
       id: 'engine-socket-id',
       transport: {
-        name: 'websocket'
+        name: 'websocket',
+        writable: true
       },
+      readyState: 'open',
       events: {},
       on: function(event, eventHandler) {
         this.events[event] = eventHandler;
@@ -228,6 +237,8 @@ describe('socket.router', () => {
       expect(MOCK_SOCKET.events.disconnecting).to.be.a('function');
       expect(MOCK_SOCKET.events.error).to.be.a('function');
       expect(MOCK_SOCKET.conn.events.close).to.be.a('function');
+      expect(MOCK_SOCKET.conn.events.error).to.be.a('function');
+      expect(MOCK_SOCKET.conn.events.upgrade).to.be.a('function');
     });
     it('should handle a socket use', () => {
       const useFn = MOCK_SOCKET.using[0];
@@ -251,7 +262,13 @@ describe('socket.router', () => {
       expect(router.getConnections()).to.have.lengthOf(0);
     });
     it('should handle socket connection close and error diagnostics', () => {
-      MOCK_SOCKET.conn.dispatch('close', 'transport close');
+      MOCK_SOCKET.conn.dispatch('upgrade', { name: 'websocket' });
+      MOCK_SOCKET.conn.dispatch('error', new Error('engine transport failure'));
+      MOCK_SOCKET.conn.dispatch(
+        'close',
+        'transport close',
+        new Error('websocket connection closed')
+      );
       MOCK_SOCKET.dispatch('error', new Error('socket middleware failure'));
 
       expect(router.getUser(MOCK_SOCKET.id))

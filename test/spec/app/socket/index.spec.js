@@ -34,6 +34,7 @@ describe('socket', () => {
     const redisOptions = Socket.buildRedisAdapterOptions('rediss://localhost:6380', true);
 
     expect(redisOptions.url).to.equal('rediss://localhost:6380');
+    expect(redisOptions.pingInterval).to.equal(300000);
     expect(redisOptions.socket.connectTimeout).to.equal(15000);
     expect(redisOptions.socket.tls).to.be.true;
     expect(redisOptions.socket.reconnectStrategy(1)).to.equal(5000);
