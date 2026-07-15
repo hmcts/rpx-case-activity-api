@@ -33,17 +33,11 @@ exports.onServerError = (port, logTo, exitRoute) => {
       throw error;
     }
 
-    // eslint-disable-next-line no-console
-    console.log(`[${new Date().toISOString()}] Server error on port ${port}: ${error.message}`);
     logger.warn(`Server error on port ${port}: ${error.message}`);
 
     const bind = typeof port === 'string' ? `Pipe ${port}` : `Port ${port}`;
 
-    // eslint-disable-next-line no-console
-    console.log(`[${new Date().toISOString()}] Handling server error for ${bind}`);
     logger.warn(`Handling server error for ${bind}`);
-    // eslint-disable-next-line no-console
-    console.log(`[${new Date().toISOString()}] Error code: ${error.code}`);
     logger.warn(`Error code: ${error.code}`);
 
     // Handle specific listen errors with friendly messages.
@@ -67,14 +61,10 @@ exports.onServerError = (port, logTo, exitRoute) => {
  */
 exports.onListening = (server, logTo) => {
   return () => {
-    // eslint-disable-next-line no-console
-    console.log(`[${new Date().toISOString()}] Server listening event triggered`);
     logger.warn('Server listening event triggered');
     const addr = server.address();
     const bind = typeof addr === 'string' ? `pipe ${addr}` : `port ${addr.port}`;
     logTo(`Listening on ${bind}`);
-    // eslint-disable-next-line no-console
-    console.log(`[${new Date().toISOString()}] Listening on ${bind}`);
     logger.warn(`Listening on ${bind}`);
   };
 };

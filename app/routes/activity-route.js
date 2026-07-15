@@ -8,8 +8,6 @@ const logger = Logger.getLogger('activity-route');
 const router = express.Router();
 
 module.exports = (activityService, config) => {
-  // eslint-disable-next-line no-console
-  console.log(`[${new Date().toISOString()}] Initializing activity route at ${new Date().toISOString()}`);
   logger.warn(`Initializing activity route at ${new Date().toISOString()}`);
 
   const addActivity = require('./add-activity')(activityService); // eslint-disable-line global-require
@@ -21,8 +19,6 @@ module.exports = (activityService, config) => {
 
   router.use(timeout(toMillis(config.get('app.requestTimeoutSec'))));
 
-  // eslint-disable-next-line no-console
-  console.log(`[${new Date().toISOString()}] Setting request timeout to ${config.get('app.requestTimeoutSec')} seconds`);
   logger.warn(`Setting request timeout to ${config.get('app.requestTimeoutSec')} seconds`);
 
   router.post('/cases/:caseid/activity', (req, res, next) => {
@@ -35,8 +31,6 @@ module.exports = (activityService, config) => {
   },
   getActivities);
 
-  // eslint-disable-next-line no-console
-  console.log(`[${new Date().toISOString()}] Activity route initialized => ready to accept requests`);
   logger.warn('Activity route initialized => ready to accept requests');
 
   return router;

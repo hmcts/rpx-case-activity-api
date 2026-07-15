@@ -1,7 +1,6 @@
 const util = require('util');
 const config = require('config');
 const appInsights = require('applicationinsights');
-const winston = require('winston');
 const { Logger } = require('@hmcts/nodejs-logging');
 
 const enabled = config.get('appInsights.enabled');
@@ -29,12 +28,15 @@ const SEVERITY_MAP = {
 };
 
 // Custom winston transport that forwards each log entry to App Insights trackTrace.
+// Implemented as a duck-typed transport (no direct winston import needed) compatible
+// with the winston 2.x transport interface used by @hmcts/nodejs-logging.
 function AppInsightsTransport(options) {
-  winston.Transport.call(this, options);
   this.name = 'appInsights';
-  this.level = options && options.level || 'silly';
+  this.level = (options && options.level) || 'silly';
+  this.silent = false;
+  this.handleExceptions = false;
 }
-util.inherits(AppInsightsTransport, winston.Transport);
+util.inherits(AppInsightsTransport, require('events').EventEmitter);
 
 AppInsightsTransport.prototype.log = function log(level, msg, meta, callback) {
   if (!appInsights.defaultClient) {
@@ -56,16 +58,16 @@ AppInsightsTransport.prototype.log = function log(level, msg, meta, callback) {
 
 // Patch Logger.getLogger to track every logger instance and wire App Insights
 // transport to it, whether it is created before or after enableAppInsights().
-const _originalGetLogger = Logger.getLogger.bind(Logger);
-let _appInsightsTransport = null;
-const _loggerRegistry = [];
+const originalGetLogger = Logger.getLogger.bind(Logger);
+let appInsightsTransport = null;
+const loggerRegistry = [];
 
 Logger.getLogger = function getLogger(name) {
-  const instance = _originalGetLogger(name);
-  if (_appInsightsTransport) {
-    instance.add(_appInsightsTransport, {}, true);
+  const instance = originalGetLogger(name);
+  if (appInsightsTransport) {
+    instance.add(appInsightsTransport, {}, true);
   } else {
-    _loggerRegistry.push(instance);
+    loggerRegistry.push(instance);
   }
   return instance;
 };
@@ -84,13 +86,13 @@ const enableAppInsights = () => {
   appInsights.defaultClient.config.samplingPercentage = getSamplingPercentage();
   appInsights.start();
 
-  _appInsightsTransport = new AppInsightsTransport({ level: 'silly' });
+  appInsightsTransport = new AppInsightsTransport({ level: 'silly' });
 
   // Wire the transport to any loggers that were created before enableAppInsights() ran.
-  _loggerRegistry.forEach((loggerInstance) => {
-    loggerInstance.add(_appInsightsTransport, {}, true);
+  loggerRegistry.forEach((loggerInstance) => {
+    loggerInstance.add(appInsightsTransport, {}, true);
   });
-  _loggerRegistry.length = 0;
+  loggerRegistry.length = 0;
 };
 
 module.exports = enableAppInsights;

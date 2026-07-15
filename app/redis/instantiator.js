@@ -38,10 +38,8 @@ function instantiateRedis(debug) {
 
   redis
     .on('error', (err) => {
-      // eslint-disable-next-line no-console
       debug(`Redis error: ${err.message}`);
     }).on('connect', () => {
-    // eslint-disable-next-line no-console
       debug('connected to Redis');
     });
 

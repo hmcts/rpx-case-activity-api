@@ -30,8 +30,6 @@ const authCheckerUserOnlyFilter = (req, res, next) => {
   const authorization = req.get('Authorization');
   req.authentication = {};
 
-  // eslint-disable-next-line no-console
-  console.log(`[${new Date().toISOString()}] Authenticating user`);
   logger.warn('Authenticating user');
 
   userRequestAuthorizer
@@ -46,8 +44,6 @@ const authCheckerUserOnlyFilter = (req, res, next) => {
         logger.error(error);
         mapFetchErrors(error, next);
       } else {
-        // eslint-disable-next-line no-console
-        console.log(`[${new Date().toISOString()}] Unsuccessful user authentication`, error);
         logger.warn('Unsuccessful user authentication', error);
         error.status = error.status || 401; // eslint-disable-line no-param-reassign
         next(error);

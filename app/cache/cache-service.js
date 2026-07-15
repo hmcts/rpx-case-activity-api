@@ -32,8 +32,6 @@ class Cache {
       this.set(key, result);
       return result;
     }).catch((error) => {
-      // eslint-disable-next-line no-console
-      console.log(`[${new Date().toISOString()}] Error computing value to be cached for cache '${this.name}'`);
       logger.warn(`Error computing value to be cached for cache '${this.name}'`);
       throw error;
     });
