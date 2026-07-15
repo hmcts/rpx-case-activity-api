@@ -41,4 +41,13 @@ describe('socket', () => {
     expect(redisOptions.socket.reconnectStrategy(6)).to.equal(10000);
     expect(redisOptions.socket.reconnectStrategy(100)).to.equal(10000);
   });
+
+  it('should configure socket heartbeat defaults for websocket transport', () => {
+    const socketOptions = Socket.buildSocketServerOptions();
+
+    expect(socketOptions.allowEIO3).to.be.true;
+    expect(socketOptions.transports).to.deep.equal(['websocket']);
+    expect(socketOptions.pingInterval).to.equal(25000);
+    expect(socketOptions.pingTimeout).to.equal(20000);
+  });
 });

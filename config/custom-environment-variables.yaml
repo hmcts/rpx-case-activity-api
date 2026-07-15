@@ -29,6 +29,9 @@ cache:
 app:
   requestTimeoutSec: APP_REQUEST_TIMEOUT
   storeCleanupCrontab: APP_STORE_CLEANUP_CRONTAB
+socket:
+  pingIntervalMs: SOCKET_PING_INTERVAL_MS
+  pingTimeoutMs: SOCKET_PING_TIMEOUT_MS
 appInsights:
   samplingPercentage: APPINSIGHTS_SAMPLING_PERCENTAGE
 

@@ -42,6 +42,32 @@ function formatEngineConnectionError(error) {
   });
 }
 
+function getPositiveIntegerConfigValue(configPath, fallbackValue) {
+  if (!config.has(configPath)) {
+    return fallbackValue;
+  }
+
+  const configuredValue = Number(config.get(configPath));
+  return Number.isInteger(configuredValue) && configuredValue > 0 ? configuredValue : fallbackValue;
+}
+
+function buildSocketServerOptions() {
+  const pingInterval = getPositiveIntegerConfigValue('socket.pingIntervalMs', 25000);
+  const pingTimeout = getPositiveIntegerConfigValue('socket.pingTimeoutMs', 20000);
+
+  return {
+    allowEIO3: true,
+    transports: ['websocket'],
+    pingInterval,
+    pingTimeout,
+    cors: {
+      origin: '*',
+      methods: ['GET', 'POST'],
+      credentials: false
+    }
+  };
+}
+
 function buildRedisAdapterOptions(redisUrl, useTLS) {
   return {
     url: redisUrl,
@@ -70,14 +96,12 @@ function createSocketServer(server, redis) {
   const activityService = ActivityService(config, redis);
 
   logSocketWarning('Creating socket server');
-  const socketServer = SocketIO(server, {
-    allowEIO3: true,
-    cors: {
-      origin: '*',
-      methods: ['GET', 'POST'],
-      credentials: false
-    },
-  });
+  const socketServerOptions = buildSocketServerOptions();
+  const socketServer = SocketIO(server, socketServerOptions);
+  logSocketWarning(
+    `[SOCKET.IO] heartbeat configured: pingInterval=${socketServerOptions.pingInterval}ms `
+    + `pingTimeout=${socketServerOptions.pingTimeout}ms`
+  );
 
   //
   // ---------------------------------------------------------
@@ -196,3 +220,4 @@ function createSocketServer(server, redis) {
 
 module.exports = createSocketServer;
 module.exports.buildRedisAdapterOptions = buildRedisAdapterOptions;
+module.exports.buildSocketServerOptions = buildSocketServerOptions;

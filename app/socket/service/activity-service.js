@@ -3,21 +3,43 @@ const keys = require('../redis/keys');
 const utils = require('../utils');
 
 const logger = Logger.getLogger('socket-activity-service');
+const userForLog = (user) => user ? {
+  uid: user.uid,
+  name: user.name
+} : null;
 
 function createSocketActivityService(config, redis) {
+  const socketOperations = new Map();
   const ttl = {
     user: config.get('redis.socket.userDetailsTtlSec'),
     activity: config.get('redis.socket.activityTtlSec')
   };
 
   const notifyChange = (caseId, excludedSocketId) => {
-    logger.warn(`Notifying change for caseId ${caseId}`);
-    if (caseId) {
-      const message = excludedSocketId
-        ? JSON.stringify({ timestamp: Date.now(), excludedSocketId })
-        : Date.now().toString();
-      redis.publish(keys.case.base(caseId), message);
+    if (!caseId) {
+      return;
     }
+    logger.warn(`Notifying change for caseId ${caseId}`);
+    const message = excludedSocketId
+      ? JSON.stringify({ timestamp: Date.now(), excludedSocketId })
+      : Date.now().toString();
+    redis.publish(keys.case.base(caseId), message);
+  };
+
+  // Redis mutations for one socket must run in arrival order. Without this queue,
+  // a rapid stop -> view/edit transition can remove the newly-added activity.
+  const runSocketOperation = (socketId, operation) => {
+    if (!socketId) {
+      return Promise.resolve(operation());
+    }
+    const previous = socketOperations.get(socketId) || Promise.resolve();
+    const queued = previous.catch(() => undefined).then(operation);
+    socketOperations.set(socketId, queued);
+    return queued.finally(() => {
+      if (socketOperations.get(socketId) === queued) {
+        socketOperations.delete(socketId);
+      }
+    });
   };
 
   const getSocketActivity = async (socketId) => {
@@ -69,19 +91,19 @@ function createSocketActivityService(config, redis) {
   const doRemoveSocketActivity = async (socketId) => doRemoveActivity(socketId, true);
   const doRemoveUserActivity = async (socketId) => doRemoveActivity(socketId, false);
 
-  const removeSocketActivity = async (socketId) => {
+  const removeSocketActivity = (socketId) => runSocketOperation(socketId, async () => {
     const removedCaseId = await doRemoveSocketActivity(socketId);
     if (removedCaseId) {
       notifyChange(removedCaseId, socketId);
     }
-  };
+  });
 
-  const removeUserActivity = async (socketId) => {
+  const removeUserActivity = (socketId) => runSocketOperation(socketId, async () => {
     const removedCaseId = await doRemoveUserActivity(socketId);
     if (removedCaseId) {
       notifyChange(removedCaseId, socketId);
     }
-  };
+  });
 
   const doAddActivity = async (caseId, user, socketId, activity) => {
     // Now store this activity.
@@ -93,9 +115,9 @@ function createSocketActivityService(config, redis) {
     ]).exec();
   };
 
-  const addActivity = async (caseId, user, socketId, activity) => {
+  const addActivity = (caseId, user, socketId, activity) => runSocketOperation(socketId, async () => {
     logger.warn(
-      `adding activity for caseId '${caseId}', user ${JSON.stringify(user)} `
+      `adding activity for caseId '${caseId}', user ${JSON.stringify(userForLog(user))} `
       + `on socket '${socketId}' with activity '${activity}'`
     );
     if (caseId && user && socketId && activity) {
@@ -110,7 +132,31 @@ function createSocketActivityService(config, redis) {
       notifyChange(caseId);
     }
     return null;
-  };
+  });
+
+  // Renew the sorted-set score and supporting Redis keys from the existing
+  // Engine.IO heartbeat. This keeps a healthy long-lived socket visible beyond
+  // redis.socket.activityTtlSec without adding another browser timer.
+  const refreshSocketActivity = (socketId, user) => runSocketOperation(socketId, async () => {
+    const currentActivity = await getSocketActivity(socketId);
+    if (!currentActivity) {
+      return null;
+    }
+
+    const pipeline = [
+      utils.store.userActivity(
+        currentActivity.activityKey,
+        currentActivity.userId,
+        utils.score(ttl.activity)
+      ),
+      ['expire', keys.socket(socketId), ttl.user]
+    ];
+    if (user?.uid) {
+      pipeline.push(utils.store.userDetails(user, ttl.user));
+    }
+    await redis.pipeline(pipeline).exec();
+    return currentActivity.caseId;
+  });
 
   const getActivityForCases = async (caseIds) => {
     if (!Array.isArray(caseIds) || caseIds.length === 0) {
@@ -167,6 +213,7 @@ function createSocketActivityService(config, redis) {
     getUserDetails,
     notifyChange,
     redis,
+    refreshSocketActivity,
     removeSocketActivity,
     ttl,
     removeUserActivity

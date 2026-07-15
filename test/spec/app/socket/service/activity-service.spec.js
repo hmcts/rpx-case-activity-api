@@ -256,6 +256,45 @@ describe('socket.service.activity-service', () => {
     });
   });
 
+  describe('refreshSocketActivity', () => {
+    const DATE_NOW = 55;
+
+    beforeEach(() => {
+      sandbox.stub(Date, 'now').returns(DATE_NOW);
+    });
+
+    afterEach(() => {
+      sandbox.restore();
+    });
+
+    it('should renew activity, socket and user leases without publishing a change', async () => {
+      const SOCKET_ID = 'abcdef123456';
+      const USER = { uid: USER_ID, given_name: 'Joe', family_name: 'Bloggs' };
+
+      await activityService.refreshSocketActivity(SOCKET_ID, USER);
+
+      expect(MOCK_REDIS.pipelines).to.have.lengthOf(1);
+      const pipes = MOCK_REDIS.pipelines[0];
+      expectPipelineContains(
+        pipes[0],
+        'zadd',
+        keys.case.view(CASE_ID),
+        DATE_NOW + TTL_ACTIVITY * 1000,
+        USER_ID
+      );
+      expectPipelineContains(pipes[1], 'expire', keys.socket(SOCKET_ID), TTL_USER);
+      expectPipelineContains(
+        pipes[2],
+        'set',
+        keys.user(USER_ID),
+        `{"id":"${USER_ID}","forename":"Joe","surname":"Bloggs"}`,
+        'EX',
+        TTL_USER
+      );
+      expect(MOCK_REDIS.messages).to.have.lengthOf(0);
+    });
+  });
+
   describe('addActivity', () => {
     const DATE_NOW = 55;
 

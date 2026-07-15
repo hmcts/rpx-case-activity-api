@@ -28,6 +28,9 @@ cache:
 app:
   requestTimeoutSec: 5
   storeCleanupCrontab: "* * * * *"
+socket:
+  pingIntervalMs: 25000
+  pingTimeoutMs: 20000
 appInsights:
   roleName: "rpx-case-activity-api"
   enabled: true

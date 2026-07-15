@@ -7,6 +7,9 @@ const logSocketWarning = (message, ...args) => {
   const timestampedMessage = `[${getSocketTimestamp()}] ${message}`;
   logger.warn(timestampedMessage, ...args);
 };
+const logWarning = (message) => {
+  logger.warn(message);
+};
 const users = {};
 const connections = [];
 
@@ -64,6 +67,36 @@ function getConnectionDiagnostics(socket, connectedAt) {
     engineReadyState: socket?.conn?.readyState,
     transportWritable: socket?.conn?.transport?.writable
   };
+}
+
+function parseHandshakeUser(socket) {
+  const authUser = socket?.handshake?.auth?.user;
+  if (authUser && typeof authUser === 'object') {
+    return authUser;
+  }
+
+  if (typeof authUser === 'string') {
+    try {
+      return JSON.parse(authUser);
+    } catch (e) {
+      utils.log(socket, '', 'Failed to parse user from handshake auth', logWarning, getSocketTimestamp());
+      logSocketWarning(`Failed to parse user from handshake auth: ${e.message}`);
+    }
+  }
+
+  // Temporary compatibility for clients deployed before user details moved to
+  // the Socket.IO auth payload. Remove after all clients have been upgraded.
+  const queryUser = socket?.handshake?.query?.user;
+  if (typeof queryUser === 'string') {
+    try {
+      return JSON.parse(queryUser);
+    } catch (e) {
+      utils.log(socket, '', 'Failed to parse user from handshake query', logWarning, getSocketTimestamp());
+      logSocketWarning(`Failed to parse user from handshake query: ${e.message}`);
+    }
+  }
+
+  return null;
 }
 
 function getSocketLifecycleDetails(socket, event, reason, user, timestamp, extra = {}) {
@@ -159,14 +192,7 @@ const router = {
       const connectedAt = Date.now();
 
       router.addConnection(socket);
-      let userObj = null;
-      if (socket?.handshake?.query?.user) {
-        try {
-          userObj = JSON.parse(socket.handshake.query.user);
-        } catch (e) {
-          logSocketWarning(`Failed to parse user from handshake query: ${e.message}`);
-        }
-      }
+      const userObj = parseHandshakeUser(socket);
       router.addUser(socket.id, userObj);
       const getSocketUser = () => router.getUser(socket.id) || userObj;
       const getDiagnostics = (extra = {}) => ({
@@ -214,6 +240,19 @@ const router = {
             getSocketUser(),
             getDiagnostics({ error: formatError(error) })
           );
+        });
+        socket.conn.on('packet', (packet) => {
+          if (packet?.type === 'pong') {
+            handlers.refreshSocketActivity(socket, getSocketUser()).catch((error) => {
+              logSocketLifecycle(
+                socket,
+                'activity-refresh-error',
+                error?.message || String(error),
+                getSocketUser(),
+                getDiagnostics({ error: formatError(error) })
+              );
+            });
+          }
         });
         socket.conn.on('close', (reason, description) => {
           logSocketLifecycle(

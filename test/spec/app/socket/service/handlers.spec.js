@@ -31,6 +31,10 @@ describe('socket.service.handlers', () => {
       const params = { socketId };
       MOCK_ACTIVITY_SERVICE.calls.push({ method: 'removeSocketActivity', params });
     },
+    refreshSocketActivity: async (socketId, user) => {
+      const params = { socketId, user };
+      MOCK_ACTIVITY_SERVICE.calls.push({ method: 'refreshSocketActivity', params });
+    },
     removeUserActivity: async (socketId) => {
       const params = { socketId };
       MOCK_ACTIVITY_SERVICE.calls.push({ method: 'removeUserActivity', params });
@@ -180,6 +184,27 @@ describe('socket.service.handlers', () => {
       expect(MOCK_ACTIVITY_SERVICE.calls).to.have.lengthOf(1);
       expect(MOCK_ACTIVITY_SERVICE.calls[0].method).to.equal('removeSocketActivity');
       expect(MOCK_ACTIVITY_SERVICE.calls[0].params.socketId).to.equal(SOCKET_ID);
+    });
+  });
+
+  describe('refreshSocketActivity', () => {
+    it('should not query Redis when the socket has no active view or edit', async () => {
+      await handlers.refreshSocketActivity(MOCK_SOCKET, { uid: 'a' });
+
+      expect(MOCK_ACTIVITY_SERVICE.calls).to.have.lengthOf(0);
+    });
+
+    it('should refresh activity for the connected socket', async () => {
+      const USER = { uid: 'a', name: 'John Smith' };
+      await handlers.addActivity(MOCK_SOCKET, '1234567890', USER, 'view');
+      MOCK_ACTIVITY_SERVICE.calls.length = 0;
+
+      await handlers.refreshSocketActivity(MOCK_SOCKET, USER);
+
+      expect(MOCK_ACTIVITY_SERVICE.calls).to.have.lengthOf(1);
+      expect(MOCK_ACTIVITY_SERVICE.calls[0].method).to.equal('refreshSocketActivity');
+      expect(MOCK_ACTIVITY_SERVICE.calls[0].params.socketId).to.equal(MOCK_SOCKET.id);
+      expect(MOCK_ACTIVITY_SERVICE.calls[0].params.user).to.equal(USER);
     });
   });
 

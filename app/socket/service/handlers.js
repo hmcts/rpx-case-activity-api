@@ -3,8 +3,13 @@ const keys = require('../redis/keys');
 const utils = require('../utils');
 
 const logger = Logger.getLogger('socket-service-handlers');
+const userForLog = (user) => user ? {
+  uid: user.uid,
+  name: user.name
+} : null;
 
 function createSocketHandlers(activityService, socketServer) {
+  const activeSocketIds = new Set();
   /**
    * Handle a user viewing or editing a case on a specific socket.
    * @param {*} socket The socket they're connected on.
@@ -17,11 +22,12 @@ function createSocketHandlers(activityService, socketServer) {
     utils.watch.update(socket, [caseId]);
 
     logger.warn(
-      `Adding activity for caseId ${caseId} user ${JSON.stringify(user)} activity ${activity}`
+      `Adding activity for caseId ${caseId} user ${JSON.stringify(userForLog(user))} activity ${activity}`
     );
 
     // Then add this new activity to redis, which will also clear out the old activity.
     await activityService.addActivity(caseId, user, socket.id, activity);
+    activeSocketIds.add(socket.id);
   }
 
   /**
@@ -50,6 +56,13 @@ function createSocketHandlers(activityService, socketServer) {
   async function removeSocketActivity(socketId) {
     logger.warn(`Removing socket activity for socketId ${socketId}`);
     await activityService.removeSocketActivity(socketId);
+    activeSocketIds.delete(socketId);
+  }
+
+  async function refreshSocketActivity(socket, user) {
+    if (activeSocketIds.has(socket.id)) {
+      await activityService.refreshSocketActivity(socket.id, user);
+    }
   }
 
   /**
@@ -63,6 +76,7 @@ function createSocketHandlers(activityService, socketServer) {
 
     // Remove the activity for this socket.
     await activityService.removeSocketActivity(socket.id);
+    activeSocketIds.delete(socket.id);
 
     // Now watch the specified cases.
     utils.watch.cases(socket, caseIds);
@@ -82,6 +96,7 @@ function createSocketHandlers(activityService, socketServer) {
     // Remove the activity and socket entry so a following watch does not
     // publish a second stale single-case activity update.
     await activityService.removeSocketActivity(socket.id);
+    activeSocketIds.delete(socket.id);
   }
 
   async function stopAll(socket, caseIds) {
@@ -97,12 +112,14 @@ function createSocketHandlers(activityService, socketServer) {
 
     // Remove the activity for this socket.
     await activityService.removeUserActivity(socket.id);
+    activeSocketIds.delete(socket.id);
   }
 
   return {
     activityService,
     addActivity,
     notify,
+    refreshSocketActivity,
     removeSocketActivity,
     socketServer,
     watch,
