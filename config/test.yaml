@@ -2,6 +2,9 @@ appInsights:
   enabled: false
 idam:
   base_url: http://test-idam:1234
+rpx:
+  base_url: http://test-ccd:1234
+  case_access_check_enabled: false
 secrets:
   ccd:
     app-insights-connection-string-at: ""

@@ -5,13 +5,22 @@ security:
   auth_blacklist: "solicitor"
 idam:
   base_url: http://localhost:5000
+rpx:
+  base_url: http://localhost:4000
+  case_access_check_enabled: true
 redis:
   host: localhost
   port: 6379
   ssl: false
   keyPrefix: "activity:"
+  reconnect:
+    minDelayMs: 5000
+    maxDelayMs: 10000
   activityTtlSec: 5
   userDetailsTtlSec: 2
+  socket:
+    activityTtlSec: 3000
+    userDetailsTtlSec: 3600
 cache:
   user_info_enabled: true
   user_info_ttl: 600
@@ -19,6 +28,9 @@ cache:
 app:
   requestTimeoutSec: 5
   storeCleanupCrontab: "* * * * *"
+socket:
+  pingIntervalMs: 25000
+  pingTimeoutMs: 20000
 appInsights:
   roleName: "rpx-case-activity-api"
   enabled: true
