@@ -5,7 +5,9 @@ properties(
          pipelineTriggers([[$class: 'GitHubPushTrigger']])]
 )
 
-@Library("Infrastructure@2.4.0")
+// Temporary: use the approved shared-library branch that disables Sonar scanning
+// while SonarCloud is returning HTTP 500 for this project's scanner metadata.
+@Library("Infrastructure@DTSPO-33489/disable-sonar-scan")
 
 def type = "nodejs"
 def product = "xui"
