@@ -64,6 +64,7 @@ tasks.register('highLevelDataSetup', JavaExec) {
 
 tasks.register('smoke', Test) {
   description = 'Executes smoke tests against an the CCD Case Activity API instance just deployed'
+  dependsOn 'aatClasses'
   setTestClassesDirs(sourceSets.aat.output.classesDirs)
 
   doFirst {
@@ -91,6 +92,7 @@ tasks.register('smoke', Test) {
 
 tasks.register('functional', Test) {
   description = 'Executes functional tests against an the CCD Case Activity API instance just deployed'
+  dependsOn 'aatClasses'
   setTestClassesDirs(sourceSets.aat.output.classesDirs)
 
   doFirst {
