@@ -95,7 +95,7 @@ withPipeline(type, product, component) {
 
     enableAksStagingDeployment()
     disableLegacyDeployment()
-    // enableHighLevelDataSetup("rpx", true)
+    enableHighLevelDataSetup("rpx", true)
 
     afterAlways('checkOut')  {
         sh "yarn cache clean"
