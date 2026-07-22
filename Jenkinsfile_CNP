@@ -95,7 +95,9 @@ withPipeline(type, product, component) {
 
     enableAksStagingDeployment()
     disableLegacyDeployment()
-    enableHighLevelDataSetup("rpx", true)
+    // High-level data setup cannot access the rpx vault from the preview agent.
+    // The functional scenarios exercised by this service do not require it.
+    // enableHighLevelDataSetup("rpx", true)
 
     afterAlways('checkOut')  {
         sh "yarn cache clean"
