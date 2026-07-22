@@ -44,3 +44,14 @@ variable "sampling_percentage" {
   default     = 1
   description = "Specifies the sampling percentage for Application Insights"
 }
+
+variable "private_endpoint_subscription_id" {
+  description = "Subscription ID containing the CFT virtual network used by the Web PubSub private endpoint."
+  type        = string
+}
+
+variable "web_pubsub_owner_ids" {
+  description = "User or service principal object IDs granted Web PubSub Service Owner outside production."
+  type        = list(string)
+  default     = []
+}
