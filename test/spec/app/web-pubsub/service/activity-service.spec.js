@@ -1,9 +1,9 @@
-const keys = require('../../../../../app/socket/redis/keys');
-const ActivityService = require('../../../../../app/socket/service/activity-service');
+const keys = require('../../../../../app/web-pubsub/redis/keys');
+const ActivityService = require('../../../../../app/web-pubsub/service/activity-service');
 const expect = require('chai').expect;
 const sandbox = require("sinon").createSandbox();
 
-describe('socket.service.activity-service', () => {
+describe('web-pubsub.service.activity-service', () => {
   // An instance that can be tested.
   let activityService;
 
@@ -28,10 +28,10 @@ describe('socket.service.activity-service', () => {
     expect(messageTS).to.be.approximately(approximateTime, tolerance);
   };
 
-  const expectNotificationExcludesSocket = (caseId, socketId) => {
+  const expectNotificationExcludesConnection = (caseId, connectionId) => {
     const message = MOCK_REDIS.messages.find(m => m.channel === keys.case.base(caseId));
     expect(message).to.exist;
-    expect(JSON.parse(message.message).excludedSocketId).to.equal(socketId);
+    expect(JSON.parse(message.message).excludedConnectionId).to.equal(connectionId);
   };
 
   const USER_ID = 'a';
@@ -41,8 +41,8 @@ describe('socket.service.activity-service', () => {
   const MOCK_CONFIG = {
     getCalls: [],
     keys: {
-      'redis.socket.activityTtlSec': TTL_ACTIVITY,
-      'redis.socket.userDetailsTtlSec': TTL_USER
+      'redis.webPubSub.activityTtlSec': TTL_ACTIVITY,
+      'redis.webPubSub.userDetailsTtlSec': TTL_USER
     },
     get: (key) => {
       MOCK_CONFIG.getCalls.push(key);
@@ -77,7 +77,7 @@ describe('socket.service.activity-service', () => {
             execResult = MOCK_REDIS.casePipeline(pipes);
           }
           break;
-        case 'socket':
+        case 'connection':
           execResult = CASE_ID;
           break;
         case 'user':
@@ -129,9 +129,9 @@ describe('socket.service.activity-service', () => {
   });
 
   it('should have appropriately initialised from the config', () => {
-    expect(MOCK_CONFIG.getCalls).to.include('redis.socket.activityTtlSec');
+    expect(MOCK_CONFIG.getCalls).to.include('redis.webPubSub.activityTtlSec');
     expect(activityService.ttl.activity).to.equal(TTL_ACTIVITY);
-    expect(MOCK_CONFIG.getCalls).to.include('redis.socket.userDetailsTtlSec');
+    expect(MOCK_CONFIG.getCalls).to.include('redis.webPubSub.userDetailsTtlSec');
     expect(activityService.ttl.user).to.equal(TTL_USER);
   });
 
@@ -148,17 +148,17 @@ describe('socket.service.activity-service', () => {
     });
   });
 
-  describe('getSocketActivity', () => {
-    it('should appropriately get socket activity', async () => {
+  describe('getConnectionActivity', () => {
+    it('should appropriately get connection activity', async () => {
       const SOCKET_ID = 'abcdef123456';
-      const activity = await activityService.getSocketActivity(SOCKET_ID);
+      const activity = await activityService.getConnectionActivity(SOCKET_ID);
       expect(MOCK_REDIS.gets).to.have.lengthOf(1);
-      expect(MOCK_REDIS.gets[0]).to.equal(keys.socket(SOCKET_ID));
+      expect(MOCK_REDIS.gets[0]).to.equal(keys.connection(SOCKET_ID));
       expect(activity).to.be.an('object');
       expect(activity.activityKey).to.equal(keys.case.view(CASE_ID));
     });
     it('should handle a null caseId', async () => {
-      const activity = await activityService.getSocketActivity(null);
+      const activity = await activityService.getConnectionActivity(null);
       expect(MOCK_REDIS.messages).to.have.lengthOf(0);
       expect(activity).to.be.null;
     });
@@ -232,31 +232,31 @@ describe('socket.service.activity-service', () => {
     });
   });
 
-  describe('removeSocketActivity', () => {
+  describe('removeConnectionActivity', () => {
     beforeEach(() => {
-      MOCK_REDIS.pipelineMode = 'socket';
+      MOCK_REDIS.pipelineMode = 'connection';
     });
 
-    it('should appropriately remove socket activity', async () => {
+    it('should appropriately remove connection activity', async () => {
       const NOW = Date.now();
       const SOCKET_ID = 'abcdef123456';
-      await activityService.removeSocketActivity(SOCKET_ID);
+      await activityService.removeConnectionActivity(SOCKET_ID);
       expect(MOCK_REDIS.pipelines).to.have.lengthOf(1);
       const pipes = MOCK_REDIS.pipelines[0];
       expect(pipes).to.be.an('array').with.a.lengthOf(2);
       expectPipelineContains(pipes[0], 'zrem', keys.case.view(CASE_ID), USER_ID);
-      expectPipelineContains(pipes[1], 'del', keys.socket(SOCKET_ID));
+      expectPipelineContains(pipes[1], 'del', keys.connection(SOCKET_ID));
       expect(MOCK_REDIS.messages).to.have.lengthOf(1);
       expectNotificationSent(CASE_ID, NOW);
-      expectNotificationExcludesSocket(CASE_ID, SOCKET_ID);
+      expectNotificationExcludesConnection(CASE_ID, SOCKET_ID);
     });
-    it('should handle a null socketId', async () => {
-      await activityService.removeSocketActivity(null);
+    it('should handle a null connectionId', async () => {
+      await activityService.removeConnectionActivity(null);
       expectNoPipelineCalls();
     });
   });
 
-  describe('refreshSocketActivity', () => {
+  describe('refreshConnectionActivity', () => {
     const DATE_NOW = 55;
 
     beforeEach(() => {
@@ -267,11 +267,11 @@ describe('socket.service.activity-service', () => {
       sandbox.restore();
     });
 
-    it('should renew activity, socket and user leases without publishing a change', async () => {
+    it('should renew activity, connection and user leases without publishing a change', async () => {
       const SOCKET_ID = 'abcdef123456';
       const USER = { uid: USER_ID, given_name: 'Joe', family_name: 'Bloggs' };
 
-      await activityService.refreshSocketActivity(SOCKET_ID, USER);
+      await activityService.refreshConnectionActivity(SOCKET_ID, USER);
 
       expect(MOCK_REDIS.pipelines).to.have.lengthOf(1);
       const pipes = MOCK_REDIS.pipelines[0];
@@ -282,7 +282,7 @@ describe('socket.service.activity-service', () => {
         DATE_NOW + TTL_ACTIVITY * 1000,
         USER_ID
       );
-      expectPipelineContains(pipes[1], 'expire', keys.socket(SOCKET_ID), TTL_USER);
+      expectPipelineContains(pipes[1], 'expire', keys.connection(SOCKET_ID), TTL_USER);
       expectPipelineContains(
         pipes[2],
         'set',
@@ -315,7 +315,7 @@ describe('socket.service.activity-service', () => {
       expect(MOCK_REDIS.pipelines).to.have.lengthOf(2);
       const pipes = MOCK_REDIS.pipelines[1];
       expectPipelineContains(pipes[0], 'zadd', keys.case.view(CASE_ID), DATE_NOW + TTL_ACTIVITY * 1000, USER_ID);
-      expectPipelineContains(pipes[1], 'set', keys.socket(SOCKET_ID), `{"activityKey":"${keys.case.view(CASE_ID)}","caseId":"${CASE_ID}","userId":"${USER_ID}"}`, 'EX', TTL_USER);
+      expectPipelineContains(pipes[1], 'set', keys.connection(SOCKET_ID), `{"activityKey":"${keys.case.view(CASE_ID)}","caseId":"${CASE_ID}","userId":"${USER_ID}"}`, 'EX', TTL_USER);
       expectPipelineContains(pipes[2], 'set', keys.user(USER_ID), `{"id":"${USER_ID}","forename":"Joe","surname":"Bloggs"}`, 'EX', TTL_USER);
       expect(MOCK_REDIS.messages).to.have.lengthOf(1);
       expectNotificationSent(CASE_ID, NOW);
@@ -328,7 +328,7 @@ describe('socket.service.activity-service', () => {
       expect(MOCK_REDIS.messages).to.have.lengthOf(2);
       expect(MOCK_REDIS.messages[0].channel).to.equal(keys.case.base(CASE_ID));
       expect(MOCK_REDIS.messages[1].channel).to.equal(keys.case.base(NEW_CASE_ID));
-      expectNotificationExcludesSocket(CASE_ID, SOCKET_ID);
+      expectNotificationExcludesConnection(CASE_ID, SOCKET_ID);
     });
     it('should handle a null caseId', async () => {
       const USER = { uid: USER_ID };
@@ -341,7 +341,7 @@ describe('socket.service.activity-service', () => {
       await activityService.addActivity(CASE_ID, null, SOCKET_ID, 'view');
       expectNoPipelineCalls();
     });
-    it('should handle a null socketId', async () => {
+    it('should handle a null connectionId', async () => {
       const USER = { uid: USER_ID };
       await activityService.addActivity(CASE_ID, USER, null, 'view');
       expectNoPipelineCalls();

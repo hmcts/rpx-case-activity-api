@@ -1,4 +1,4 @@
-const debug = require('debug')('rpx-case-activity-api:socket-utils-remove');
+const debug = require('debug')('rpx-case-activity-api:web-pubsub-utils-remove');
 const redisActivityKeys = require('../redis/keys');
 
 const remove = {
@@ -6,9 +6,9 @@ const remove = {
     debug(`about to remove activity "${activity.activityKey}" for user "${activity.userId}"`);
     return ['zrem', activity.activityKey, activity.userId];
   },
-  socketEntry: (socketId) => {
-    debug(`about to remove activity for socket "${socketId}"`);
-    return ['del', redisActivityKeys.socket(socketId)];
+  connectionEntry: (connectionId) => {
+    debug(`about to remove activity for connection "${connectionId}"`);
+    return ['del', redisActivityKeys.connection(connectionId)];
   }
 };
 

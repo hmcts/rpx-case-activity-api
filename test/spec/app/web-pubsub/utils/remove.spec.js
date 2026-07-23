@@ -1,8 +1,8 @@
 const expect = require('chai').expect;
-const remove = require('../../../../../app/socket/utils/remove');
-const keys = require('../../../../../app/socket/redis/keys');
+const remove = require('../../../../../app/web-pubsub/utils/remove');
+const keys = require('../../../../../app/web-pubsub/redis/keys');
 
-describe('socket.utils', () => {
+describe('web-pubsub.utils', () => {
 
   describe('remove', () => {
 
@@ -21,13 +21,13 @@ describe('socket.utils', () => {
       });
     });
 
-    describe('socketEntry', () => {
+    describe('connectionEntry', () => {
       it('should produce an appopriate pipe', () => {
         const SOCKET_ID = 'abcdef123456';
-        const pipe = remove.socketEntry(SOCKET_ID);
+        const pipe = remove.connectionEntry(SOCKET_ID);
         expect(pipe).to.be.an('array').and.have.lengthOf(2);
         expect(pipe[0]).to.equal('del');
-        expect(pipe[1]).to.equal(keys.socket(SOCKET_ID));
+        expect(pipe[1]).to.equal(keys.connection(SOCKET_ID));
       });
     });
 

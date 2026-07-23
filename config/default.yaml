@@ -18,7 +18,7 @@ redis:
     maxDelayMs: 10000
   activityTtlSec: 5
   userDetailsTtlSec: 2
-  socket:
+  webPubSub:
     activityTtlSec: 3000
     userDetailsTtlSec: 3600
 cache:
@@ -28,9 +28,9 @@ cache:
 app:
   requestTimeoutSec: 5
   storeCleanupCrontab: "* * * * *"
-socket:
-  pingIntervalMs: 25000
-  pingTimeoutMs: 20000
+webPubSub:
+  hub: hub
+  eventHandlerPath: /api/webpubsub/hubs/hub/
 appInsights:
   roleName: "rpx-case-activity-api"
   enabled: true
@@ -39,4 +39,5 @@ appInsights:
 secrets:
   rpx:
     activity-redis-password: testPassword
+    rpx-case-activity-api-web-pubsub-primary-connection-string: "Endpoint=https://localhost;AccessKey=dGVzdC1vbmx5LXdlYi1wdWJzdWItYWNjZXNzLWtleQ==;Version=1.0;"
     app-insights-connection-string-at: ""

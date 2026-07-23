@@ -1,4 +1,4 @@
-const debug = require('debug')('rpx-case-activity-api:socket-utils-store');
+const debug = require('debug')('rpx-case-activity-api:web-pubsub-utils-store');
 const redisActivityKeys = require('../redis/keys');
 const { toUserString } = require('./other');
 
@@ -13,10 +13,10 @@ const store = {
     debug(`about to store details "${key}" for user "${user.uid}": ${userString}`);
     return ['set', key, userString, 'EX', ttl];
   },
-  socketActivity: (socketId, activityKey, caseId, userId, ttl) => {
-    const key = redisActivityKeys.socket(socketId);
+  connectionActivity: (connectionId, activityKey, caseId, userId, ttl) => {
+    const key = redisActivityKeys.connection(connectionId);
     const userString = JSON.stringify({ activityKey, caseId, userId });
-    debug(`about to store activity "${key}" for socket "${socketId}": ${userString}`);
+    debug(`about to store activity "${key}" for connection "${connectionId}": ${userString}`);
     return ['set', key, userString, 'EX', ttl];
   }
 };

@@ -1,7 +1,7 @@
 const { Logger } = require('@hmcts/nodejs-logging');
 const keys = require('../redis/keys');
 
-const logger = Logger.getLogger('socket-utils-get');
+const logger = Logger.getLogger('web-pubsub-utils-get');
 
 const get = {
   caseActivities: (caseIds, activity, now) => {

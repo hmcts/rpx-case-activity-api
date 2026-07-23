@@ -19,9 +19,9 @@ redis:
     maxDelayMs: REDIS_RECONNECT_MAX_DELAY_MS
   activityTtlSec: REDIS_ACTIVITY_TTL
   userDetailsTtlSec: REDIS_USER_DETAILS_TTL
-  socket:
-    activityTtlSec: REDIS_SOCKET_ACTIVITY_TTL
-    userDetailsTtlSec: REDIS_SOCKET_USER_DETAILS_TTL
+  webPubSub:
+    activityTtlSec: REDIS_WEB_PUBSUB_ACTIVITY_TTL
+    userDetailsTtlSec: REDIS_WEB_PUBSUB_USER_DETAILS_TTL
 cache:
   user_info_enabled: CACHE_USER_INFO_ENABLED
   user_info_ttl: CACHE_USER_INFO_TTL
@@ -29,13 +29,14 @@ cache:
 app:
   requestTimeoutSec: APP_REQUEST_TIMEOUT
   storeCleanupCrontab: APP_STORE_CLEANUP_CRONTAB
-socket:
-  pingIntervalMs: SOCKET_PING_INTERVAL_MS
-  pingTimeoutMs: SOCKET_PING_TIMEOUT_MS
+webPubSub:
+  hub: WEB_PUBSUB_HUB
+  eventHandlerPath: WEB_PUBSUB_EVENT_HANDLER_PATH
 appInsights:
   samplingPercentage: APPINSIGHTS_SAMPLING_PERCENTAGE
 
 secrets:
   rpx:
     activity-redis-password: REDIS_PASSWORD
+    rpx-case-activity-api-web-pubsub-primary-connection-string: WEB_PUBSUB_CONNECTION_STRING
     app-insights-connection-string-at: ""

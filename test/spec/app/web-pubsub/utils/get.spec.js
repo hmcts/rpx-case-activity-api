@@ -1,8 +1,8 @@
 const expect = require('chai').expect;
-const get = require('../../../../../app/socket/utils/get');
-const keys = require('../../../../../app/socket/redis/keys');
+const get = require('../../../../../app/web-pubsub/utils/get');
+const keys = require('../../../../../app/web-pubsub/redis/keys');
 
-describe('socket.utils', () => {
+describe('web-pubsub.utils', () => {
 
   describe('get', () => {
 

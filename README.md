@@ -46,6 +46,28 @@ See [redis documentation](https://redis.io) for details
 
 Configuration is achieved through [node-config](https://github.com/lorenwest/node-config).
 
+## Azure Web PubSub
+
+Clients first call `GET /web-pubsub/negotiate` with their normal Authorization header, then
+connect to the returned `url` using the `json.webpubsub.azure.v1` subprotocol.
+
+The existing activity event contract is retained. Send `view`, `edit`, `watch`, `stop`, and
+`stopAll` as Web PubSub events, for example:
+
+```json
+{"type":"event","event":"view","dataType":"json","data":{"caseId":"123"}}
+```
+
+Activity updates are server messages whose JSON data is:
+
+```json
+{"event":"activity","data":[{"caseId":"123","viewers":[],"editors":[]}]}
+```
+
+The Web PubSub hub upstream must point to
+`https://<service-host>/api/webpubsub/hubs/hub/`. Terraform receives this value through
+`web_pubsub_event_handler_url`.
+
 
 ## Unit tests.
 The tests can be run using:

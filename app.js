@@ -19,6 +19,7 @@ const ttlScoreGenerator = require('./app/service/ttl-score-generator');
 const caseAccessChecker = require('./app/service/case-access-checker')(config);
 const activityService = require('./app/service/activity-service')(config, redis, ttlScoreGenerator, caseAccessChecker);
 const activity = require('./app/routes/activity-route')(activityService, config);
+const webPubSub = require('./app/web-pubsub')(redis);
 
 const app = express();
 const appHealth = express();
@@ -46,6 +47,9 @@ if (config.util.getEnv('NODE_ENV') === 'test') {
 debug(`starting application with environment: ${config.util.getEnv('NODE_ENV')}`);
 appLogger.warn(`starting application with environment: ${config.util.getEnv('NODE_ENV')}`);
 
+// The Web PubSub middleware must read the raw CloudEvents request stream before
+// Express body parsers and application authentication middleware.
+app.use(webPubSub.middleware);
 app.use(corsHandler);
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -53,6 +57,9 @@ app.use(express.text());
 
 appLogger.warn('Applying auth checker user only filter');
 app.use(authCheckerUserOnlyFilter);
+
+appLogger.warn('Mounting Azure Web PubSub negotiation route');
+app.get('/web-pubsub/negotiate', webPubSub.negotiate);
 
 appLogger.warn('Mounting activity route at /');
 app.use('/', activity);

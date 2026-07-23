@@ -1,8 +1,8 @@
 const expect = require('chai').expect;
 const sandbox = require("sinon").createSandbox();
-const utils = require('../../../../../app/socket/utils');
+const utils = require('../../../../../app/web-pubsub/utils');
 
-describe('socket.utils', () => {
+describe('web-pubsub.utils', () => {
 
   describe('extractUniqueUserIds', () => {
     const testExtractUniqueUserIds = (result, unique, expectedLength, ...expectedIds) => {
@@ -49,33 +49,6 @@ describe('socket.utils', () => {
     it('should strip out duplicates', () => {
       const RESULT = [['bob', ['a', 'b', 'g']], ['fred', ['f', 'b']]];
       testExtractUniqueUserIds(RESULT, ['a'], 4, 'a', 'b', 'f', 'g');
-    });
-  });
-
-  describe('log', () => {
-    const testLog = (payload, expectedLength, validateLogs) => {
-      const logs = [];
-      const logTo = (str) => logs.push(str);
-      const SOCKET = { id: 'Are' };
-      const GROUP = 'you not';
-      utils.log(SOCKET, payload, GROUP, logTo);
-      expect(logs).to.have.lengthOf(expectedLength);
-      validateLogs(logs);
-    };
-
-    it('should output string payload', () => {
-      const PAYLOAD = 'entertained?';
-      testLog(PAYLOAD, 1, (logs) => {
-        expect(logs[0]).to.include(`| Are | you not => entertained?`);
-      });
-    });
-
-    it('should output object payload', () => {
-      const PAYLOAD = { sufficiently: 'entertained?' };
-      testLog(PAYLOAD, 2, (logs) => {
-        expect(logs[0]).to.include(`| Are | you not`);
-        expect(logs[1]).to.equal(PAYLOAD);
-      });
     });
   });
 
@@ -151,9 +124,8 @@ describe('socket.utils', () => {
     });
   };
 
-  testModuleSetup('get', '../../../../../app/socket/utils/get');
-  testModuleSetup('remove', '../../../../../app/socket/utils/remove');
-  testModuleSetup('store', '../../../../../app/socket/utils/store');
-  testModuleSetup('watch', '../../../../../app/socket/utils/watch');
+  testModuleSetup('get', '../../../../../app/web-pubsub/utils/get');
+  testModuleSetup('remove', '../../../../../app/web-pubsub/utils/remove');
+  testModuleSetup('store', '../../../../../app/web-pubsub/utils/store');
 
 });

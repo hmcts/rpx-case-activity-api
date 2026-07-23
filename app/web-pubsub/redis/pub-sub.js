@@ -1,7 +1,7 @@
 const { Logger } = require('@hmcts/nodejs-logging');
 const keys = require('./keys');
 
-const logger = Logger.getLogger('redis-pub-sub');
+const logger = Logger.getLogger('web-pubsub-redis-pub-sub');
 
 function parseMessage(message) {
   if (typeof message !== 'string') {

@@ -1,8 +1,8 @@
 const expect = require('chai').expect;
-const keys = require('../../../../../app/socket/redis/keys');
-const pubSub = require('../../../../../app/socket/redis/pub-sub')();
+const keys = require('../../../../../app/web-pubsub/redis/keys');
+const pubSub = require('../../../../../app/web-pubsub/redis/pub-sub')();
 
-describe('socket.redis.pub-sub', () => {
+describe('web-pubsub.redis.pub-sub', () => {
   const MOCK_SUBSCRIBER = {
     patterns: [],
     events: {},
@@ -64,11 +64,13 @@ describe('socket.redis.pub-sub', () => {
     it('should pass notification options from the redis message', () => {
       pubSub.init(MOCK_SUBSCRIBER, MOCK_NOTIFIER.notify);
       const CASE_ID = '1234567890';
-      const MESSAGE = JSON.stringify({ excludedSocketId: 'socket-id' });
+      const MESSAGE = JSON.stringify({ excludedConnectionId: 'connection-id' });
       MOCK_SUBSCRIBER.dispatch('pmessage', `${keys.prefixes.case}:${CASE_ID}`, MESSAGE);
       expect(MOCK_NOTIFIER.messages).to.have.lengthOf(1);
       expect(MOCK_NOTIFIER.messages[0].caseId).to.equal(CASE_ID);
-      expect(MOCK_NOTIFIER.messages[0].options).to.deep.equal({ excludedSocketId: 'socket-id' });
+      expect(MOCK_NOTIFIER.messages[0].options).to.deep.equal({
+        excludedConnectionId: 'connection-id'
+      });
     });
   });
 

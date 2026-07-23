@@ -1,7 +1,7 @@
-const keys = require('../../../../../app/socket/redis/keys');
+const keys = require('../../../../../app/web-pubsub/redis/keys');
 const expect = require('chai').expect;
 
-describe('socket.redis.keys', () => {
+describe('web-pubsub.redis.keys', () => {
 
   it('should get the correct key for viewing a case', () => {
     const CASE_ID = '12345678';
@@ -23,9 +23,9 @@ describe('socket.redis.keys', () => {
     expect(keys.user(USER_ID)).to.equal(`${keys.prefixes.user}:${USER_ID}`);
   });
 
-  it('should get the correct key for a socket', () => {
+  it('should get the correct key for a connection', () => {
     const SOCKET_ID = 'zyxwvu987654';
-    expect(keys.socket(SOCKET_ID)).to.equal(`${keys.prefixes.socket}:${SOCKET_ID}`);
+    expect(keys.connection(SOCKET_ID)).to.equal(`${keys.prefixes.connection}:${SOCKET_ID}`);
   });
 
 });

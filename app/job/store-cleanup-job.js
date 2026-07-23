@@ -53,7 +53,7 @@ const cleanCasesWithPrefix = (prefix) => {
 const storeCleanup = () => {
   debug('store cleanup starting...');
   cleanCasesWithPrefix('case'); // Cases via RESTful interface.
-  cleanCasesWithPrefix('c'); // Cases via socket interface.
+  cleanCasesWithPrefix('c'); // Cases via the Web PubSub interface.
 };
 
 exports.start = (crontab) => {

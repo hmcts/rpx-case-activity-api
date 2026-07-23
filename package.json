@@ -18,8 +18,8 @@
     "test:a11y": "echo 'TODO: Accessibility tests'",
     "sonar-scan": "NODE_PATH=. sonar-scanner -X",
     "highLevelDataSetup": "echo './aat/gradlew -p aat highLevelDataSetup --args=$1' > ./temp.sh && sh ./temp.sh",
-    "lint": "NODE_PATH=. eslint app.js app/**/*.js",
-    "lint-fix": "NODE_PATH=. eslint --fix app.js app/**/*.js test/**/*.js"
+    "lint": "DISABLE_V8_COMPILE_CACHE=1 NODE_PATH=. eslint app.js app/**/*.js",
+    "lint-fix": "DISABLE_V8_COMPILE_CACHE=1 NODE_PATH=. eslint --fix app.js app/**/*.js test/**/*.js"
   },
   "nyc": {
     "reporter": [
@@ -35,10 +35,11 @@
     ]
   },
   "dependencies": {
+    "@azure/web-pubsub": "^1.0.0",
+    "@azure/web-pubsub-express": "^1.0.3",
     "@hmcts/nodejs-healthcheck": "^1.8.0",
     "@hmcts/nodejs-logging": "^4.0.4",
     "@hmcts/properties-volume": "^0.0.14",
-    "@socket.io/redis-adapter": "^8.3.0",
     "applicationinsights": "2.9.8",
     "body-parser": "^1.20.1",
     "config": "^1.26.1",
@@ -58,8 +59,6 @@
     "node-cron": "^4.2.1",
     "node-fetch": "^2.6.7",
     "or": "^0.2.0",
-    "redis": "^5.10.0",
-    "socket.io": "^4.8.3",
     "yarn": "^1.22.22"
   },
   "devDependencies": {

@@ -1,4 +1,4 @@
-const debug = require('debug')('rpx-case-activity-api:socket-utils');
+const debug = require('debug')('rpx-case-activity-api:web-pubsub-utils');
 
 const other = {
   extractUniqueUserIds: (result, uniqueUserIds) => {
@@ -16,20 +16,6 @@ const other = {
       });
     }
     return userIds;
-  },
-  log: (socket, payload, group, logTo, ts) => {
-    const outputTo = logTo || debug;
-    const now = ts || new Date().toISOString();
-    let text = `${now} | ${socket.id} | ${group}`;
-    if (typeof payload === 'string') {
-      if (payload) {
-        text = `${text} => ${payload}`;
-      }
-      outputTo(text);
-    } else {
-      outputTo(text);
-      outputTo(payload);
-    }
   },
   score: (ttlStr) => {
     const now = Date.now();
