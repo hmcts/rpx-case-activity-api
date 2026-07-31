@@ -15,8 +15,38 @@ const CCD_UNAVAILABLE_ERROR = {
 const toError = (errorDetails) => Object.assign(new Error(errorDetails.message), errorDetails);
 
 function createCaseAccessChecker(config) {
-  const isEnabled = () => !config.has('rpx.case_access_check_enabled')
-    || config.get('rpx.case_access_check_enabled');
+  const asBoolean = (value, defaultValue = true) => {
+    if (value === undefined || value === null) {
+      return defaultValue;
+    }
+
+    if (typeof value === 'boolean') {
+      return value;
+    }
+
+    if (typeof value === 'number') {
+      return value !== 0;
+    }
+
+    if (typeof value === 'string') {
+      const normalized = value.trim().toLowerCase();
+      if (['false', '0', 'off', 'no'].includes(normalized)) {
+        return false;
+      }
+      if (['true', '1', 'on', 'yes'].includes(normalized)) {
+        return true;
+      }
+    }
+
+    return Boolean(value);
+  };
+
+  const isEnabled = () => {
+    if (!config.has('rpx.case_access_check_enabled')) {
+      return true;
+    }
+    return asBoolean(config.get('rpx.case_access_check_enabled'));
+  };
 
   const getBaseUrl = () => config.get('rpx.base_url').replace(/\/$/, '');
 

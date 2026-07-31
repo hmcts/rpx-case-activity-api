@@ -17,6 +17,22 @@ function createHandlers(activityService, serviceClient) {
     }
   }
 
+  async function runWatchStage(stage, operation) {
+    logger.warn(`Web PubSub watch stage started stage=${stage}`);
+    try {
+      const result = await operation();
+      logger.warn(`Web PubSub watch stage completed stage=${stage}`);
+      return result;
+    } catch (error) {
+      const stagedError = new Error(error?.message || String(error), { cause: error });
+      stagedError.name = error?.name || stagedError.name;
+      stagedError.code = error?.code;
+      stagedError.statusCode = error?.statusCode || error?.status;
+      stagedError.webPubSubStage = stage;
+      throw stagedError;
+    }
+  }
+
   function startRefreshing(connectionId, user) {
     stopRefreshing(connectionId);
     const timer = setInterval(async () => {
@@ -80,12 +96,18 @@ function createHandlers(activityService, serviceClient) {
   }
 
   async function watch(connection, caseIds) {
-    await connection.leaveCaseGroups();
-    await activityService.removeConnectionActivity(connection.id);
+    await runWatchStage(
+      'remove-activity',
+      () => activityService.removeConnectionActivity(connection.id)
+    );
     stopRefreshing(connection.id);
-    await replaceCaseGroups(connection, caseIds);
-    const activity = await activityService.getActivityForCases(caseIds);
-    await connection.emit('activity', activity);
+    await runWatchStage('update-groups', () => replaceCaseGroups(connection, caseIds));
+    const activity = await runWatchStage(
+      'get-activity',
+      () => activityService.getActivityForCases(caseIds)
+    );
+    await runWatchStage('emit-activity', () => connection.emit('activity', activity));
+    return undefined;
   }
 
   async function stop(connection, caseId) {

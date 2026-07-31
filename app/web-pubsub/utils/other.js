@@ -27,8 +27,8 @@ const other = {
   toUserString: (user) => {
     return user ? JSON.stringify({
       id: user.uid,
-      forename: user.given_name,
-      surname: user.family_name
+      forename: user.forename || user.given_name,
+      surname: user.surname || user.family_name
     }) : '{}';
   }
 };

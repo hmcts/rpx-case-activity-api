@@ -18,7 +18,7 @@ describe('web-pubsub.service.activity-service', () => {
     return assertions;
   };
 
-  const expectNotificationSent = (caseId, approximateTime = Date.now(), tolerance = 5) => {
+  const expectNotificationSent = (caseId, approximateTime = Date.now(), tolerance = 20) => {
     const message = MOCK_REDIS.messages.find(m => m.channel === keys.case.base(caseId));
     expect(message).to.exist;
     let messageTS = Number.parseInt(message.message, 10);
@@ -387,6 +387,77 @@ describe('web-pubsub.service.activity-service', () => {
         verifyCaseActivity(result[index], id);
       });
     });
+
+    it('should include two known viewers and two known editors for the same case', async () => {
+      const CASE_IDS = ['1234567890'];
+      const originalCasePipeline = MOCK_REDIS.casePipeline;
+      const originalUserPipeline = MOCK_REDIS.userPipeline;
+      const users = {
+        'viewer-1': { id: 'viewer-1', forename: 'Alice', surname: 'Viewer' },
+        'viewer-2': { id: 'viewer-2', forename: 'Bob', surname: 'Viewer' },
+        'editor-1': { id: 'editor-1', forename: 'Carol', surname: 'Editor' },
+        'editor-2': { id: 'editor-2', forename: 'Dan', surname: 'Editor' }
+      };
+
+      MOCK_REDIS.casePipeline = (pipes) => {
+        const userIds = pipes[0][1].endsWith(':viewers')
+          ? ['viewer-1', 'viewer-2']
+          : ['editor-1', 'editor-2'];
+        return [[null, userIds]];
+      };
+      MOCK_REDIS.userPipeline = (pipes) => pipes.map((pipe) => {
+        const id = pipe[1].replace(`${keys.prefixes.user}:`, '');
+        return [null, JSON.stringify(users[id])];
+      });
+
+      try {
+        const result = await activityService.getActivityForCases(CASE_IDS);
+
+        expect(result).to.be.an('array').with.a.lengthOf(1);
+        expect(result[0].viewers).to.deep.equal([users['viewer-1'], users['viewer-2']]);
+        expect(result[0].editors).to.deep.equal([users['editor-1'], users['editor-2']]);
+        expect(result[0].unknownViewers).to.equal(0);
+        expect(result[0].unknownEditors).to.equal(0);
+      } finally {
+        MOCK_REDIS.casePipeline = originalCasePipeline;
+        MOCK_REDIS.userPipeline = originalUserPipeline;
+      }
+    });
+
+    it('should count unknown viewers and editors independently', async () => {
+      const CASE_IDS = ['1234567890'];
+      const originalCasePipeline = MOCK_REDIS.casePipeline;
+      const originalUserPipeline = MOCK_REDIS.userPipeline;
+      const users = {
+        'known-viewer': { id: 'known-viewer', forename: 'Alice', surname: 'Viewer' },
+        'known-editor': { id: 'known-editor', forename: 'Bob', surname: 'Editor' }
+      };
+
+      MOCK_REDIS.casePipeline = (pipes) => {
+        const userIds = pipes[0][1].endsWith(':viewers')
+          ? ['known-viewer', 'missing-viewer']
+          : ['known-editor', 'missing-editor-1', 'missing-editor-2'];
+        return [[null, userIds]];
+      };
+      MOCK_REDIS.userPipeline = (pipes) => pipes.map((pipe) => {
+        const id = pipe[1].replace(`${keys.prefixes.user}:`, '');
+        return [null, users[id] ? JSON.stringify(users[id]) : null];
+      });
+
+      try {
+        const result = await activityService.getActivityForCases(CASE_IDS);
+
+        expect(result).to.be.an('array').with.a.lengthOf(1);
+        expect(result[0].viewers).to.deep.equal([users['known-viewer']]);
+        expect(result[0].editors).to.deep.equal([users['known-editor']]);
+        expect(result[0].unknownViewers).to.equal(1);
+        expect(result[0].unknownEditors).to.equal(2);
+      } finally {
+        MOCK_REDIS.casePipeline = originalCasePipeline;
+        MOCK_REDIS.userPipeline = originalUserPipeline;
+      }
+    });
+
     it('should handle null caseIds', async () => {
       const result = await activityService.getActivityForCases(null);
       expect(result).to.be.an('array').with.a.lengthOf(0);

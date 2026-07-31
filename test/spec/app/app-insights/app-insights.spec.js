@@ -11,13 +11,14 @@ const samplingConfigKey = 'appInsights.samplingPercentage';
 
 const buildConfigStub = ({
   enabled = true,
+  connectionString = appInsightsConnectionString,
   samplingConfigAvailable = true,
   samplingPercentage = 100
 } = {}) => {
   const get = sinon.stub();
   get.withArgs('appInsights.enabled').returns(enabled);
   get.withArgs('secrets.rpx.app-insights-connection-string-at')
-    .returns(appInsightsConnectionString);
+    .returns(connectionString);
   get.withArgs('appInsights.roleName').returns(roleName);
   get.withArgs(samplingConfigKey).returns(samplingPercentage);
 
@@ -116,6 +117,22 @@ describe('Application insights', () => {
 
     sinon.assert.calledOnceWithExactly(config.get, 'appInsights.enabled');
     sinon.assert.notCalled(config.has);
+    sinon.assert.notCalled(setup);
+    sinon.assert.notCalled(start);
+  });
+
+  it('should not initialize application insights without a connection string', () => {
+    const {
+      config,
+      enableAppInsights,
+      setup,
+      start
+    } = loadAppInsights({ connectionString: '' });
+
+    enableAppInsights();
+
+    sinon.assert.calledWithExactly(config.get, 'secrets.rpx.app-insights-connection-string-at');
+    sinon.assert.neverCalledWith(config.get, 'appInsights.roleName');
     sinon.assert.notCalled(setup);
     sinon.assert.notCalled(start);
   });

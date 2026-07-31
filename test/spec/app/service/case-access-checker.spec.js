@@ -80,4 +80,21 @@ describe('case access checker', () => {
 
     expect(fetch).not.to.have.been.called;
   });
+
+  it('should treat string false as disabled (env var override)', async () => {
+    fetch.resetHistory();
+    config = {
+      has: sinon.stub().returns(true),
+      get: sinon.stub(),
+    };
+    config.get.withArgs('rpx.case_access_check_enabled').returns('false');
+    config.get.withArgs('rpx.base_url').returns('https://ccd.local');
+    caseAccessChecker = proxyquire('../../../../app/service/case-access-checker', {
+      '../util/fetch': fetch,
+    })(config);
+
+    await caseAccessChecker.assertUserHasAccess(['111'], 'Bearer token');
+
+    expect(fetch).not.to.have.been.called;
+  });
 });

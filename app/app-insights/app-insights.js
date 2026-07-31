@@ -77,6 +77,9 @@ const enableAppInsights = () => {
     return;
   }
   const appInsightsString = config.get('secrets.rpx.app-insights-connection-string-at');
+  if (typeof appInsightsString !== 'string' || appInsightsString.trim() === '') {
+    return;
+  }
   const appInsightsRoleName = config.get('appInsights.roleName');
   appInsights.setup(appInsightsString)
     .setAutoDependencyCorrelation(true)

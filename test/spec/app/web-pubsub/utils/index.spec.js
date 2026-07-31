@@ -100,6 +100,11 @@ describe('web-pubsub.utils', () => {
       testToUserString(USER, '{"id":"1234567890","forename":"Bob","surname":"Smith"}');
     });
 
+    it('should handle a user with forename and surname fields', () => {
+      const USER = { uid: '1234567890', forename: 'Bob', surname: 'Smith' };
+      testToUserString(USER, '{"id":"1234567890","forename":"Bob","surname":"Smith"}');
+    });
+
     it('should handle a user with a missing family name', () => {
       const USER = { uid: '1234567890', given_name: 'Bob' };
       testToUserString(USER, '{"id":"1234567890","forename":"Bob"}');

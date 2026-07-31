@@ -39,5 +39,5 @@ appInsights:
 secrets:
   rpx:
     activity-redis-password: testPassword
-    rpx-case-activity-api-web-pubsub-primary-connection-string: "Endpoint=https://localhost;AccessKey=dGVzdC1vbmx5LXdlYi1wdWJzdWItYWNjZXNzLWtleQ==;Version=1.0;"
+    rpx-case-activity-api-web-pubsub-primary-connection-string: WEB_PUBSUB_CONNECTION_STRING
     app-insights-connection-string-at: ""

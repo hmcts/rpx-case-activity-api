@@ -17,6 +17,27 @@ $ cd rpx-case-activity-api
 $ yarn install
 $ yarn start
 ```
+
+For local development without a running IDAM instance, start the API and a
+loopback-only IDAM stub together:
+
+```
+$ yarn start:local
+```
+
+The stub still requires an `Authorization` header and returns a local user with
+the `caseworker-local` role. To run only the stub alongside an API process that
+is already running, use `yarn start:idam-stub`.
+
+For local multi-user testing (for example viewer/editor presence), pass distinct
+bearer tokens per browser session:
+
+- `Authorization: Bearer local-dev-user:alice`
+- `Authorization: Bearer local-dev-user:bob`
+
+The suffix after `local-dev-user:` becomes the local `uid`, so each session is
+tracked as a different user in activity lists.
+
 ## Setup Redis with Docker
 To pull the latest docker image from docker store just type:
 ```

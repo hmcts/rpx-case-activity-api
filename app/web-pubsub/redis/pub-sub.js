@@ -5,6 +5,7 @@ const logger = Logger.getLogger('web-pubsub-redis-pub-sub');
 
 function parseMessage(message) {
   if (typeof message !== 'string') {
+    logger.warn('Redis pub-sub message is not a string');
     return {};
   }
 
@@ -18,15 +19,20 @@ function parseMessage(message) {
 
 function handlePatternMessage(_, room, caseNotifier, message) {
   const caseId = room.replace(`${keys.prefixes.case}:`, '');
+  logger.warn(`Redis pub-sub event received for room '${room}', caseId '${caseId}'`);
   caseNotifier(caseId, parseMessage(message));
 }
 
 function init(watcher, caseNotifier) {
   if (watcher && typeof caseNotifier === 'function') {
-    watcher.psubscribe(`${keys.prefixes.case}:*`);
+    const pattern = `${keys.prefixes.case}:*`;
+    logger.warn(`Subscribing Web PubSub watcher to Redis pattern '${pattern}'`);
+    watcher.psubscribe(pattern);
     watcher.on('pmessage', (_, room, message) => {
       handlePatternMessage(_, room, caseNotifier, message);
     });
+  } else {
+    logger.warn('Web PubSub Redis pub-sub init skipped due to missing watcher or notifier');
   }
 }
 
