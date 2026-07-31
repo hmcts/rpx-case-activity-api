@@ -5,10 +5,10 @@ properties(
          pipelineTriggers([[$class: 'GitHubPushTrigger']])]
 )
 
-// Temporary: use the approved shared-library branch that disables Sonar scanning
-// while SonarCloud is returning HTTP 500 for this project's scanner metadata.
-// @Library("Infrastructure@DTSPO-33489/disable-sonar-scan")
-@Library("Infrastructure@2.4.0")
+// The 2.4.x releases run build-time ACR operations on environment agents,
+// which cannot reach the private build registry. Use the mainline pipeline,
+// where ACR operations run on the standard build agent.
+@Library("Infrastructure@master")
 
 def type = "nodejs"
 def product = "xui"
