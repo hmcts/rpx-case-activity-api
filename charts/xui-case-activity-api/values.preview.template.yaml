@@ -9,6 +9,7 @@ nodejs:
     REDIS_PASSWORD: fake-password
     REDIS_SSL_ENABLED: ""
     CORS_ORIGIN_WHITELIST: "*"
+    WEB_PUBSUB_ENABLED: false
   keyVaults:
   replicas: 2
 

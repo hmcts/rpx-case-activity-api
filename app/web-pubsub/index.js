@@ -10,6 +10,19 @@ const createRouter = require('./router');
 const logger = Logger.getLogger('web-pubsub-index');
 const CONNECTION_STRING_CONFIG = 'secrets.rpx.rpx-case-activity-api-web-pubsub-primary-connection-string';
 
+function isEnabled() {
+  if (!config.has('webPubSub.enabled')) {
+    return true;
+  }
+
+  const value = config.get('webPubSub.enabled');
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  return !['false', '0', 'off', 'no'].includes(String(value).trim().toLowerCase());
+}
+
 function resolveConnectionString() {
   return process.env.WEB_PUBSUB_CONNECTION_STRING
     || process.env.WebPubSubConnectionString
@@ -27,6 +40,11 @@ function connectionStringSource() {
 }
 
 function createWebPubSub(redis, dependencies = {}) {
+  if (!isEnabled()) {
+    logger.warn('Azure Web PubSub is disabled; skipping client and event handler initialization');
+    return null;
+  }
+
   const hub = config.get('webPubSub.hub');
   const connectionString = resolveConnectionString();
   logger.warn(`Initializing Web PubSub for hub '${hub}' using ${connectionStringSource()}`);

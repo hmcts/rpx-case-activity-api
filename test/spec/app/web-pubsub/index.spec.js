@@ -6,15 +6,23 @@ const sinon = require('sinon');
 const modulePath = path.resolve(__dirname, '../../../../app/web-pubsub/index.js');
 const CONNECTION_STRING_CONFIG = 'secrets.rpx.rpx-case-activity-api-web-pubsub-primary-connection-string';
 
-function createConfigStub(configConnectionString) {
+function createConfigStub(configConnectionString, enabled) {
   const get = sinon.stub();
   get.withArgs('webPubSub.hub').returns('hub');
   get.withArgs('webPubSub.eventHandlerPath').returns('/api/webpubsub/hubs/hub/');
   get.withArgs(CONNECTION_STRING_CONFIG).returns(configConnectionString);
+  if (enabled !== undefined) {
+    get.withArgs('webPubSub.enabled').returns(enabled);
+  }
+
+  const has = sinon.stub().returns(false);
+  if (enabled !== undefined) {
+    has.withArgs('webPubSub.enabled').returns(true);
+  }
 
   return {
     get,
-    has: sinon.stub().returns(false),
+    has,
     util: {
       getEnv: sinon.stub().returns('test')
     }
@@ -37,9 +45,9 @@ function EventHandlerStub(hub, options) {
   this.getMiddleware = () => (req, res, next) => next();
 }
 
-function loadCreateWebPubSub(configConnectionString) {
+function loadCreateWebPubSub(configConnectionString, enabled) {
   delete require.cache[modulePath];
-  const config = createConfigStub(configConnectionString);
+  const config = createConfigStub(configConnectionString, enabled);
   const pubSubInit = sinon.stub();
 
   const createWebPubSub = proxyquire(modulePath, {
@@ -74,6 +82,21 @@ describe('web-pubsub.index', () => {
     } else {
       process.env.WebPubSubConnectionString = originalTunnelConnectionString;
     }
+  });
+
+  it('does not create Azure clients when Web PubSub is disabled', () => {
+    const ServiceClient = sinon.spy(ServiceClientStub);
+    const EventHandler = sinon.spy(EventHandlerStub);
+    const { createWebPubSub } = loadCreateWebPubSub('WEB_PUBSUB_CONNECTION_STRING', 'false');
+
+    const webPubSub = createWebPubSub({}, {
+      WebPubSubServiceClient: ServiceClient,
+      WebPubSubEventHandler: EventHandler
+    });
+
+    expect(webPubSub).to.equal(null);
+    expect(ServiceClient.called).to.equal(false);
+    expect(EventHandler.called).to.equal(false);
   });
 
   it('prefers WEB_PUBSUB_CONNECTION_STRING when set', () => {

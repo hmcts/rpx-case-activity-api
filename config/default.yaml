@@ -29,6 +29,7 @@ app:
   requestTimeoutSec: 5
   storeCleanupCrontab: "* * * * *"
 webPubSub:
+  enabled: true
   hub: hub
   eventHandlerPath: /api/webpubsub/hubs/hub/
 appInsights:

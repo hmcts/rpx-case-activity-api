@@ -30,6 +30,7 @@ app:
   requestTimeoutSec: APP_REQUEST_TIMEOUT
   storeCleanupCrontab: APP_STORE_CLEANUP_CRONTAB
 webPubSub:
+  enabled: WEB_PUBSUB_ENABLED
   hub: WEB_PUBSUB_HUB
   eventHandlerPath: WEB_PUBSUB_EVENT_HANDLER_PATH
 appInsights:
