@@ -138,10 +138,14 @@ resource "azurerm_web_pubsub_hub" "case_activity" {
   web_pubsub_id                 = azurerm_web_pubsub.case_activity.id
   anonymous_connections_enabled = false
 
-  event_handler {
-    url_template       = var.web_pubsub_event_handler_url
-    user_event_pattern = "*"
-    system_events      = ["connect", "connected", "disconnected"]
+  dynamic "event_handler" {
+    for_each = var.web_pubsub_event_handler_url == null ? [] : [var.web_pubsub_event_handler_url]
+
+    content {
+      url_template       = event_handler.value
+      user_event_pattern = "*"
+      system_events      = ["connect", "connected", "disconnected"]
+    }
   }
 }
 
