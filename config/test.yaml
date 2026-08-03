@@ -8,3 +8,5 @@ rpx:
 secrets:
   ccd:
     app-insights-connection-string-at: ""
+  rpx:
+    rpx-case-activity-api-web-pubsub-primary-connection-string: Endpoint=https://test.webpubsub.azure.com;AccessKey=test-key;Version=1.0;
