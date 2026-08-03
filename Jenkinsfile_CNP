@@ -5,10 +5,9 @@ properties(
          pipelineTriggers([[$class: 'GitHubPushTrigger']])]
 )
 
-// Use the approved shared-library branch that keeps build-time ACR operations
-// on the standard build agent and temporarily disables Sonar while SonarCloud
-// returns HTTP 500 for this project's scanner metadata.
-@Library("Infrastructure@DTSPO-33489/disable-sonar-scan")
+// Use the approved mainline shared library. Jenkins rejects unlisted library
+// branches before any project build or test stages can run.
+@Library("Infrastructure@master")
 
 def type = "nodejs"
 def product = "xui"
