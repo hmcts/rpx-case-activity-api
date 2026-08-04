@@ -36,6 +36,12 @@ variable "capacity" {
   description = "The size of the Redis cache to deploy. Valid values are 1, 2, 3, 4, 5"
 }
 
+variable "managed_redis_sku_name" {
+  default     = "Balanced_B1"
+  description = "The SKU used by Azure Managed Redis during migration."
+  type        = string
+}
+
 variable "shared_product_name" {
   default = "rpx"
 }

@@ -10,10 +10,11 @@ provider "azurerm" {
 }
 
 locals {
-  app_full_name     = "rpx-${var.component}"
-  ase_name          = "core-compute-${var.env}"
-  local_env         = (var.env == "preview" || var.env == "spreview") ? (var.env == "preview") ? "aat" : "saat" : var.env
-  shared_vault_name = "${var.shared_product_name}-${local.local_env}"
+  app_full_name              = "rpx-${var.component}"
+  ase_name                   = "core-compute-${var.env}"
+  local_env                  = (var.env == "preview" || var.env == "spreview") ? (var.env == "preview") ? "aat" : "saat" : var.env
+  shared_vault_name          = "${var.shared_product_name}-${local.local_env}"
+  managed_redis_environments = toset(var.env == "demo" ? [var.env] : [])
 }
 
 data "azurerm_key_vault" "key_vault" {
@@ -38,6 +39,14 @@ data "azurerm_subnet" "cft_infra_web_pubsub_subnet" {
 resource "azurerm_key_vault_secret" "redis_connection_string" {
   name         = "activity-redis-password"
   value        = module.redis-activity-service.access_key
+  key_vault_id = data.azurerm_key_vault.key_vault.id
+}
+
+resource "azurerm_key_vault_secret" "managed_redis_access_key" {
+  for_each = local.managed_redis_environments
+
+  name         = "activity-managed-redis-password"
+  value        = module.managed-redis-activity-service[each.key].primary_access_key
   key_vault_id = data.azurerm_key_vault.key_vault.id
 }
 
@@ -76,6 +85,28 @@ module "redis-activity-service" {
   sku_name                      = var.sku_name
   family                        = var.family
   capacity                      = var.capacity
+}
+
+module "managed-redis-activity-service" {
+  for_each = local.managed_redis_environments
+
+  source = "git@github.com:hmcts/terraform-module-azure-managed-redis?ref=main"
+
+  product     = var.product
+  component   = "activity-service"
+  name        = "${var.product}-activity-service-managed"
+  env         = var.env
+  location    = var.location
+  common_tags = var.common_tags
+
+  sku_name                           = var.managed_redis_sku_name
+  access_keys_authentication_enabled = true
+  public_network_access              = "Disabled"
+  create_private_endpoint            = true
+  subnet_id                          = data.azurerm_subnet.cft_infra_web_pubsub_subnet.id
+  private_dns_zone_ids = [
+    "/subscriptions/${var.private_endpoint_subscription_id}/resourceGroups/core-infra-intsvc-rg/providers/Microsoft.Network/privateDnsZones/privatelink.redis.azure.net"
+  ]
 }
 
 resource "azurerm_key_vault_secret" "app_insights_connection_string" {
