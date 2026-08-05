@@ -39,6 +39,12 @@ function connectionStringSource() {
   return CONNECTION_STRING_CONFIG;
 }
 
+function hasConnectionString(connectionString) {
+  return typeof connectionString === 'string'
+    && connectionString.trim() !== ''
+    && connectionString !== 'WEB_PUBSUB_CONNECTION_STRING';
+}
+
 function createWebPubSub(redis, dependencies = {}) {
   if (!isEnabled()) {
     logger.warn('Azure Web PubSub is disabled; skipping client and event handler initialization');
@@ -47,6 +53,14 @@ function createWebPubSub(redis, dependencies = {}) {
 
   const hub = config.get('webPubSub.hub');
   const connectionString = resolveConnectionString();
+  if (!hasConnectionString(connectionString)) {
+    logger.warn(
+      `Azure Web PubSub is enabled but ${connectionStringSource()} is not configured; `
+      + 'skipping client and event handler initialization'
+    );
+    return null;
+  }
+
   logger.warn(`Initializing Web PubSub for hub '${hub}' using ${connectionStringSource()}`);
   const ServiceClient = dependencies.WebPubSubServiceClient || WebPubSubServiceClient;
   const EventHandler = dependencies.WebPubSubEventHandler || WebPubSubEventHandler;

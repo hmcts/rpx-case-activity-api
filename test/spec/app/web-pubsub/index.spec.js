@@ -99,6 +99,38 @@ describe('web-pubsub.index', () => {
     expect(EventHandler.called).to.equal(false);
   });
 
+  it('does not create Azure clients when the connection string is missing', () => {
+    delete process.env.WEB_PUBSUB_CONNECTION_STRING;
+    delete process.env.WebPubSubConnectionString;
+    const ServiceClient = sinon.spy(ServiceClientStub);
+    const EventHandler = sinon.spy(EventHandlerStub);
+    const { createWebPubSub } = loadCreateWebPubSub('');
+
+    const webPubSub = createWebPubSub({}, {
+      WebPubSubServiceClient: ServiceClient,
+      WebPubSubEventHandler: EventHandler
+    });
+
+    expect(webPubSub).to.equal(null);
+    expect(ServiceClient.called).to.equal(false);
+    expect(EventHandler.called).to.equal(false);
+  });
+
+  it('does not pass the connection string environment variable name to Azure as a value', () => {
+    delete process.env.WEB_PUBSUB_CONNECTION_STRING;
+    delete process.env.WebPubSubConnectionString;
+    const ServiceClient = sinon.spy(ServiceClientStub);
+    const { createWebPubSub } = loadCreateWebPubSub('WEB_PUBSUB_CONNECTION_STRING');
+
+    const webPubSub = createWebPubSub({}, {
+      WebPubSubServiceClient: ServiceClient,
+      WebPubSubEventHandler: EventHandlerStub
+    });
+
+    expect(webPubSub).to.equal(null);
+    expect(ServiceClient.called).to.equal(false);
+  });
+
   it('prefers WEB_PUBSUB_CONNECTION_STRING when set', () => {
     process.env.WEB_PUBSUB_CONNECTION_STRING = 'Endpoint=https://from-backend-env;AccessKey=abc;Version=1.0;';
     process.env.WebPubSubConnectionString = 'Endpoint=https://from-tunnel-env;AccessKey=def;Version=1.0;';

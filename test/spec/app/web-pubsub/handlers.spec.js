@@ -109,6 +109,31 @@ describe('web-pubsub.service.handlers', () => {
     };
   });
 
+  it('coalesces consecutive case changes and broadcasts only the latest activity', async () => {
+    const handlers = createHandlers(activityService, serviceClient);
+
+    const firstNotification = handlers.notify('case-1', { notificationId: 'notification-1' });
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    const latestNotification = handlers.notify('case-1', { notificationId: 'notification-2' });
+    await Promise.all([firstNotification, latestNotification]);
+
+    expect(calls).to.deep.equal([
+      [
+        'set',
+        'web-pubsub:notification:case-1:notification-2',
+        calls[0][2],
+        'PX',
+        5000,
+        'NX'
+      ],
+      [
+        'sendToAll',
+        { event: 'activity', data: [{ caseId: 'case-1', viewers: [], editors: [] }] },
+        {}
+      ]
+    ]);
+  });
+
   it('emits watched case activity to the requesting connection', async () => {
     const connectionCalls = [];
     const connection = {

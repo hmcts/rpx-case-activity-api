@@ -4,9 +4,11 @@ const keys = require('../redis/keys');
 
 const logger = Logger.getLogger('web-pubsub-service-handlers');
 const userForLog = (user) => (user ? { uid: user.uid, name: user.name } : null);
+const NOTIFICATION_DEBOUNCE_MS = 200;
 
 function createHandlers(activityService, serviceClient) {
   const refreshTimers = new Map();
+  const pendingNotifications = new Map();
   const refreshIntervalMs = Math.max(Math.floor(activityService.ttl.activity * 500), 1000);
 
   function stopRefreshing(connectionId) {
@@ -76,7 +78,7 @@ function createHandlers(activityService, serviceClient) {
     return claimed === 'OK';
   }
 
-  async function notify(caseId, options = {}) {
+  async function sendNotification(caseId, options) {
     if (!await claimNotification(caseId, options.notificationId)) {
       return;
     }
@@ -87,6 +89,29 @@ function createHandlers(activityService, serviceClient) {
       { event: 'activity', data: activity },
       excludedConnectionId ? { excludedConnections: [excludedConnectionId] } : {}
     );
+  }
+
+  function notify(caseId, options = {}) {
+    return new Promise((resolve, reject) => {
+      // A view -> edit transition can publish a removal followed by an addition. Wait for the
+      // transition to settle so clients receive the final Redis state rather than both states.
+      const pending = pendingNotifications.get(caseId) || { waiters: [] };
+      if (pending.timer) {
+        clearTimeout(pending.timer);
+      }
+      pending.options = options;
+      pending.waiters.push({ resolve, reject });
+      pending.timer = setTimeout(async () => {
+        pendingNotifications.delete(caseId);
+        try {
+          await sendNotification(caseId, pending.options);
+          pending.waiters.forEach((waiter) => waiter.resolve());
+        } catch (error) {
+          pending.waiters.forEach((waiter) => waiter.reject(error));
+        }
+      }, NOTIFICATION_DEBOUNCE_MS);
+      pendingNotifications.set(caseId, pending);
+    });
   }
 
   async function removeConnectionActivity(connectionId) {

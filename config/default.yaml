@@ -40,5 +40,5 @@ appInsights:
 secrets:
   rpx:
     activity-redis-password: testPassword
-    rpx-case-activity-api-web-pubsub-primary-connection-string: WEB_PUBSUB_CONNECTION_STRING
+    rpx-case-activity-api-web-pubsub-primary-connection-string: ""
     app-insights-connection-string-at: ""
