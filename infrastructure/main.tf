@@ -136,7 +136,17 @@ resource "azurerm_web_pubsub_network_acl" "case_activity" {
 resource "azurerm_web_pubsub_hub" "case_activity" {
   name                          = "hub"
   web_pubsub_id                 = azurerm_web_pubsub.case_activity.id
-  anonymous_connections_enabled = true
+  anonymous_connections_enabled = false
+
+  dynamic "event_handler" {
+    for_each = var.web_pubsub_event_handler_url == null ? [] : [var.web_pubsub_event_handler_url]
+
+    content {
+      url_template       = event_handler.value
+      user_event_pattern = "*"
+      system_events      = ["connect", "connected", "disconnected"]
+    }
+  }
 }
 
 resource "azurerm_key_vault_secret" "web_pubsub_primary_connection_string" {

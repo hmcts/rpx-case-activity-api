@@ -6,9 +6,12 @@ redis:
       enabled: false
   auth:
     enabled: false
+  image:
+    registry: hmctsprod.azurecr.io
+    repository: imported/bitnami/redis
 
 nodejs:
-  image: 'hmctssbox.azurecr.io/xui/case-activity-api:latest'
+  image: 'hmctsprod.azurecr.io/xui/case-activity-api:latest'
   applicationPort: 3460
   aadIdentityName: rpx
   ingressHost: rpx-case-activity-api-{{ .Values.global.environment }}.service.core-compute-{{ .Values.global.environment }}.internal
@@ -26,6 +29,8 @@ nodejs:
     AUTH_WHITE_LIST: ^caseworker-.+
     AUTH_BLACK_LIST: solicitor
     IDAM_BASE_URL: https://idam-api.{{ .Values.global.environment }}.platform.hmcts.net
+    RPX_BASE_URL: http://ccd-data-store-api-{{ .Values.global.environment }}.service.core-compute-{{ .Values.global.environment }}.internal
+    RPX_CASE_ACCESS_CHECK_ENABLED: true
     REDIS_HOST: xui-activity-service-{{ .Values.global.environment }}.redis.cache.windows.net
     REDIS_PORT: 6380
     REDIS_SSL_ENABLED: true
@@ -41,3 +46,4 @@ nodejs:
       secrets:        
         - name: activity-redis-password
         - name: app-insights-connection-string-at
+        - name: rpx-case-activity-api-web-pubsub-primary-connection-string
