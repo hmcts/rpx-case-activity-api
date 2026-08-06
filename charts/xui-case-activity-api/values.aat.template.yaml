@@ -1,3 +1,9 @@
 nodejs:
   ingressHost: ${SERVICE_FQDN}
   image: ${IMAGE_NAME}
+  keyVaults:
+    rpx:
+      secrets:
+        - name: activity-redis-password
+        - name: app-insights-connection-string-at
+        - name: rpx-case-activity-api-web-pubsub-primary-connection-string
