@@ -84,7 +84,6 @@
     "async": "^2.6.4",
     "lodash": "^4.17.21",
     "lodash.pick": "3.1.0",
-    "yargs-parser": "^18.1.2",
     "minimist": "^1.2.6",
     "y18n": "^4.0.1",
     "hosted-git-info": "^3.0.8",
