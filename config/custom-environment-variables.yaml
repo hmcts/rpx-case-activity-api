@@ -5,14 +5,23 @@ security:
   auth_blacklist: AUTH_BLACK_LIST
 idam:
   base_url: IDAM_BASE_URL
+rpx:
+  base_url: RPX_BASE_URL
+  case_access_check_enabled: RPX_CASE_ACCESS_CHECK_ENABLED
 redis:
   host: REDIS_HOST
   port: REDIS_PORT
   password: REDIS_PASSWORD
   ssl: REDIS_SSL_ENABLED
   keyPrefix: REDIS_KEY_PREFIX
+  reconnect:
+    minDelayMs: REDIS_RECONNECT_MIN_DELAY_MS
+    maxDelayMs: REDIS_RECONNECT_MAX_DELAY_MS
   activityTtlSec: REDIS_ACTIVITY_TTL
   userDetailsTtlSec: REDIS_USER_DETAILS_TTL
+  webPubSub:
+    activityTtlSec: REDIS_WEB_PUBSUB_ACTIVITY_TTL
+    userDetailsTtlSec: REDIS_WEB_PUBSUB_USER_DETAILS_TTL
 cache:
   user_info_enabled: CACHE_USER_INFO_ENABLED
   user_info_ttl: CACHE_USER_INFO_TTL
@@ -20,10 +29,15 @@ cache:
 app:
   requestTimeoutSec: APP_REQUEST_TIMEOUT
   storeCleanupCrontab: APP_STORE_CLEANUP_CRONTAB
+webPubSub:
+  enabled: WEB_PUBSUB_ENABLED
+  hub: WEB_PUBSUB_HUB
+  eventHandlerPath: WEB_PUBSUB_EVENT_HANDLER_PATH
 appInsights:
   samplingPercentage: APPINSIGHTS_SAMPLING_PERCENTAGE
 
 secrets:
   rpx:
     activity-redis-password: REDIS_PASSWORD
+    rpx-case-activity-api-web-pubsub-primary-connection-string: WEB_PUBSUB_CONNECTION_STRING
     app-insights-connection-string-at: ""

@@ -17,6 +17,27 @@ $ cd rpx-case-activity-api
 $ yarn install
 $ yarn start
 ```
+
+For local development without a running IDAM instance, start the API and a
+loopback-only IDAM stub together:
+
+```
+$ yarn start:local
+```
+
+The stub still requires an `Authorization` header and returns a local user with
+the `caseworker-local` role. To run only the stub alongside an API process that
+is already running, use `yarn start:idam-stub`.
+
+For local multi-user testing (for example viewer/editor presence), pass distinct
+bearer tokens per browser session:
+
+- `Authorization: Bearer local-dev-user:alice`
+- `Authorization: Bearer local-dev-user:bob`
+
+The suffix after `local-dev-user:` becomes the local `uid`, so each session is
+tracked as a different user in activity lists.
+
 ## Setup Redis with Docker
 To pull the latest docker image from docker store just type:
 ```
@@ -46,15 +67,37 @@ See [redis documentation](https://redis.io) for details
 
 Configuration is achieved through [node-config](https://github.com/lorenwest/node-config).
 
+## Azure Web PubSub
 
-## Unit tests
+Clients first call `GET /web-pubsub/negotiate` with their normal Authorization header, then
+connect to the returned `url` using the `json.webpubsub.azure.v1` subprotocol.
+
+The existing activity event contract is retained. Send `view`, `edit`, `watch`, `stop`, and
+`stopAll` as Web PubSub events, for example:
+
+```json
+{"type":"event","event":"view","dataType":"json","data":{"caseId":"123"}}
+```
+
+Activity updates are server messages whose JSON data is:
+
+```json
+{"event":"activity","data":[{"caseId":"123","viewers":[],"editors":[]}]}
+```
+
+The Web PubSub hub upstream must point to
+`https://<service-host>/api/webpubsub/hubs/hub/`. Terraform receives this value through
+`web_pubsub_event_handler_url`.
+
+
+## Unit tests.
 The tests can be run using:
 
 ```
 $ yarn test
 ```
 
-## End to End tests
+## End to End tests.
 
 The end to end tests require a running instance of Redis. Beware before each test all keys in Redis are removed.
 The tests can be run using:
@@ -63,7 +106,7 @@ The tests can be run using:
 $ yarn test:end2end
 ```
 
-## Functional Tests
+## Functional Tests.
 The functional tests are located in `aat` folder. The tests are written using 
 befta-fw library. To find out more about BEFTA Framework, see the repository and its README [here](https://github.com/hmcts/befta-fw).
 
@@ -80,7 +123,7 @@ $ cd ./aat/
 $ ./gradlew functional
 ```
 
-## Some notes on development and test config
+## Some notes on development and test config.
 You need to set the NODE_ENV to make use of environment configuration and DEBUG to see the logs when you run the server
 ```
 $ export NODE_ENV=dev
@@ -94,5 +137,3 @@ $ yarn start
   rpx-case-activity-api:server Listening on port 3000 +19ms
   rpx-case-activity-api:redis-client connected to Redis +7ms
 ```
-
-

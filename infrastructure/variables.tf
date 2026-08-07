@@ -61,3 +61,14 @@ variable "web_pubsub_owner_ids" {
   type        = list(string)
   default     = []
 }
+
+variable "web_pubsub_event_handler_url" {
+  description = "Publicly reachable HTTPS URL for the case activity Web PubSub CloudEvents handler. Leave unset until the endpoint is live."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.web_pubsub_event_handler_url == null ? true : startswith(var.web_pubsub_event_handler_url, "https://")
+    error_message = "web_pubsub_event_handler_url must be an HTTPS URL."
+  }
+}

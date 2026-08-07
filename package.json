@@ -1,13 +1,19 @@
 {
   "name": "rpx-case-activity-api",
   "version": "0.0.2",
-  "private": true,
   "engines": {
-    "node": "^20.11.0"
+    "node": "^24.0.0"
   },
   "scripts": {
     "setup": "cross-env NODE_PATH=. yarn node --version",
     "start": "cross-env NODE_PATH=. yarn node server.js",
+    "start:idam-stub": "cross-env NODE_PATH=. yarn node scripts/local-idam-stub.js",
+    "start:local": "cross-env NODE_PATH=. yarn node scripts/start-local.js",
+    "start:local:tunnel": "sh -c 'yarn start:local & APP_PID=$!; trap \"kill $APP_PID\" EXIT INT TERM; yarn start:tunnel'",
+    "start:local:tunnel:verbose": "sh -c 'yarn start:local & APP_PID=$!; trap \"kill $APP_PID\" EXIT INT TERM; yarn start:tunnel:verbose'",
+    "start:tunnel": "npx --yes @azure/web-pubsub-tunnel-tool run --hub hub --upstream http://localhost:3460",
+    "start:tunnel:verbose": "npx --yes @azure/web-pubsub-tunnel-tool run --hub hub --upstream http://localhost:3460 --verbose",
+    "start:debug": "DEBUG=rpx-case-activity-api:* yarn start",
     "test": "NODE_ENV=test mocha --exit --recursive test/spec app/user",
     "test:end2end": "NODE_ENV=test mocha --exit test/e2e --timeout 15000",
     "test:smoke": "echo 'TODO - Ignore SMOKE tests'",
@@ -18,8 +24,8 @@
     "test:a11y": "echo 'TODO: Accessibility tests'",
     "sonar-scan": "NODE_PATH=. sonar-scanner -X",
     "highLevelDataSetup": "echo './aat/gradlew -p aat highLevelDataSetup --args=$1' > ./temp.sh && sh ./temp.sh",
-    "lint": "NODE_PATH=. eslint app.js app/**/*.js",
-    "lint-fix": "NODE_PATH=. eslint --fix app.js app/**/*.js test/**/*.js"
+    "lint": "DISABLE_V8_COMPILE_CACHE=1 NODE_PATH=. eslint app.js app/**/*.js",
+    "lint-fix": "DISABLE_V8_COMPILE_CACHE=1 NODE_PATH=. eslint --fix app.js app/**/*.js test/**/*.js"
   },
   "nyc": {
     "reporter": [
@@ -35,26 +41,28 @@
     ]
   },
   "dependencies": {
+    "@azure/web-pubsub": "^1.0.0",
+    "@azure/web-pubsub-express": "^1.0.3",
     "@hmcts/nodejs-healthcheck": "^1.8.0",
     "@hmcts/nodejs-logging": "^4.0.4",
     "@hmcts/properties-volume": "^0.0.14",
     "applicationinsights": "2.9.8",
     "body-parser": "^1.20.1",
-    "config": "^1.26.1",
-    "connect-timeout": "^1.9.0",
-    "cookie": "^0.7.0",
-    "cross-env": "^5.2.0",
-    "debug": "~2.6.3",
+    "config": "^3.3.12",
+    "connect-timeout": "^1.9.1",
+    "cookie": "^1.1.1",
+    "cross-env": "^10.1.0",
+    "debug": "~4.4.3",
     "express": "^5.0.1",
     "formidable": "^3.5.4",
-    "ioredis": "^3.1.4",
-    "joi": "^17.2.1",
+    "ioredis": "^5.10.1",
+    "joi": "^18.2.1",
     "jwt-decode": "^2.2.0",
     "moment": "^2.29.4",
-    "morgan": "^1.9.1",
+    "morgan": "^1.10.1",
     "nocache": "^2.1.0",
-    "node-cache": "^5.1.0",
-    "node-cron": "^1.2.1",
+    "node-cache": "^5.1.2",
+    "node-cron": "^4.2.1",
     "node-fetch": "^2.6.7",
     "or": "^0.2.0",
     "yarn": "^1.22.22"
@@ -63,6 +71,7 @@
     "chai": "^4.3.6",
     "chai-arrays": "^2.0.0",
     "chai-http": "^4.0.0",
+    "concurrently": "^10.0.3",
     "eslint": "6",
     "eslint-config-airbnb-base": "^14.0.0",
     "eslint-plugin-import": "^2.14.0",
@@ -77,7 +86,7 @@
     "sinon-chai": "^3.5.0",
     "sinon-express-mock": "^2.2.1",
     "sonar-scanner": "^3.1.0",
-    "supertest": "^3.0.0"
+    "supertest": "^7.1.4"
   },
   "resolutions": {
     "async": "^2.6.4",
@@ -91,6 +100,7 @@
     "ansi-regex": "^5.0.1",
     "path-parse": "^1.0.7",
     "glob-parent": "^5.1.2",
+    "ws": "^7.4.6",
     "moment": "^2.29.4",
     "ajv": "6.12.6",
     "json5": "^2.2.2",

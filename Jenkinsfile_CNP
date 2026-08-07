@@ -5,7 +5,9 @@ properties(
          pipelineTriggers([[$class: 'GitHubPushTrigger']])]
 )
 
-@Library("Infrastructure@2.4.0")
+// Use the approved mainline shared library. Jenkins rejects unlisted library
+// branches before any project build or test stages can run.
+@Library("Infrastructure@master")
 
 def type = "nodejs"
 def product = "xui"
@@ -28,6 +30,7 @@ def secrets = [
         secret('xui-api-gateway-oauth2-client-secret', 'XUI_API_GATEWAY_OAUTH2_CLIENT_SECRET'),
         secret('definition-importer-username', 'DEFINITION_IMPORTER_USERNAME'),
         secret('definition-importer-password', 'DEFINITION_IMPORTER_PASSWORD'),
+        secret('rpx-case-activity-api-web-pubsub-primary-connection-string', 'WEB_PUBSUB_CONNECTION_STRING'),
 
         // Required for FTA tests
         secret('xui-befta-caseworker-2-solicitor-1-pwd', 'XUI_BEFTA_CASEWORKER_2_SOLICITOR_1_PWD'),
