@@ -38,7 +38,7 @@
     "@hmcts/nodejs-healthcheck": "^1.8.0",
     "@hmcts/nodejs-logging": "^4.0.4",
     "@hmcts/properties-volume": "^0.0.14",
-    "applicationinsights": "2.9.8",
+    "applicationinsights": "^3.15.1",
     "body-parser": "^1.20.1",
     "config": "^1.26.1",
     "connect-timeout": "^1.9.0",
@@ -100,8 +100,10 @@
     "flat": "^5.0.1",
     "qs": "^6.11.0",
     "semver": "7.7.2",
-    "@grpc/grpc-js": "1.13.4",
-    "cross-spawn": "^7.0.6"
+    "@grpc/grpc-js": "^1.14.4",
+    "cross-spawn": "^7.0.6",
+    "@opentelemetry/core": "^2.8.0",
+    "@azure/monitor-opentelemetry": "^1.19.0"
   },
   "packageManager": "yarn@4.9.4"
 }
