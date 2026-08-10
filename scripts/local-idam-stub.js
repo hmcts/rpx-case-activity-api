@@ -1,4 +1,5 @@
 const http = require('node:http');
+const { createHash } = require('node:crypto');
 
 const defaultUser = {
   uid: 'local-user',
@@ -102,6 +103,17 @@ const getBearerToken = (authorization) => {
   return token.trim();
 };
 
+const opaqueTokenUser = (token) => {
+  const fingerprint = createHash('sha256').update(token).digest('hex').slice(0, 16);
+  return {
+    ...defaultUser,
+    uid: `local-${fingerprint}`,
+    id: `local-${fingerprint}`,
+    family_name: `User-${fingerprint.slice(0, 6)}`,
+    name: `Local User-${fingerprint.slice(0, 6)}`
+  };
+};
+
 const getUserFromAuthorization = (authorization) => {
   const token = getBearerToken(authorization);
   if (!token || token === 'local-dev-token') {
@@ -126,12 +138,11 @@ const getUserFromAuthorization = (authorization) => {
     return jwtUser;
   }
 
-  // For unknown tokens, preserve the stable local user identity rather than
-  // leaking bearer token content into user fields.
-  return {
-    ...defaultUser,
-    uid: 'local-user',
-  };
+  // Real front ends can supply opaque IDAM tokens. Give each distinct token a
+  // stable local identity without exposing any part of the token itself. Mapping
+  // every opaque token to "local-user" collapses multiple browser users into one
+  // Redis presence entry.
+  return opaqueTokenUser(token);
 };
 
 const sendJson = (response, status, body) => {

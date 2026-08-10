@@ -4,6 +4,18 @@ const utils = require('../../../../../app/web-pubsub/utils');
 
 describe('web-pubsub.utils', () => {
 
+  describe('connection-scoped activity members', () => {
+    it('should encode and decode a user and connection without exposing duplicates', () => {
+      const first = utils.toActivityMember('user-a', 'connection-1');
+      const second = utils.toActivityMember('user-a', 'connection-2');
+
+      expect(first).not.to.equal(second);
+      expect(utils.userIdFromActivityMember(first)).to.equal('user-a');
+      expect(utils.uniqueUserIdsFromActivityMembers([first, second, 'legacy-user']))
+        .to.deep.equal(['user-a', 'legacy-user']);
+    });
+  });
+
   describe('extractUniqueUserIds', () => {
     const testExtractUniqueUserIds = (result, unique, expectedLength, ...expectedIds) => {
       const IDS = utils.extractUniqueUserIds(result, unique);

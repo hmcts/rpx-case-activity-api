@@ -28,22 +28,22 @@ describe('web-pubsub.service.handlers', () => {
     calls.length = 0;
   });
 
-  function trackedConnection(initialRooms = []) {
+  function trackedConnection(initialRooms = [], trackedConnectionId = 'connection-1') {
     const connectionCalls = [];
     const rooms = new Set(initialRooms);
     const group = (room) => ({
-      addConnection: async (connectionId) => {
-        connectionCalls.push(['addConnection', room, connectionId]);
+      addConnection: async (groupConnectionId) => {
+        connectionCalls.push(['addConnection', room, groupConnectionId]);
       },
-      removeConnection: async (connectionId) => {
-        connectionCalls.push(['removeConnection', room, connectionId]);
+      removeConnection: async (groupConnectionId) => {
+        connectionCalls.push(['removeConnection', room, groupConnectionId]);
       }
     });
     const connection = createConnection({
       group,
       sendToConnection: async (...args) => connectionCalls.push(['sendToConnection', ...args])
     }, {
-      connectionId: 'connection-1',
+      connectionId: trackedConnectionId,
       states: { rooms: [...rooms] }
     });
     return { connection, connectionCalls };
@@ -94,6 +94,76 @@ describe('web-pubsub.service.handlers', () => {
     } finally {
       activityService.getActivityForCases = originalGetActivityForCases;
     }
+  });
+
+  it('joins and broadcasts the complete mixed activity list for three connections', async () => {
+    const users = [
+      { uid: 'user-a', forename: 'Alice', surname: 'User' },
+      { uid: 'user-b', forename: 'Bob', surname: 'User' },
+      { uid: 'user-c', forename: 'Carol', surname: 'User' }
+    ];
+    const activities = [];
+    const multiUserService = {
+      ...activityService,
+      redis: { set: async () => 'OK' },
+      addActivity: async (caseId, user, connectionId, activity) => {
+        activities.push({
+          caseId, user, connectionId, activity
+        });
+      },
+      getActivityForCases: async ([caseId]) => [{
+        caseId,
+        viewers: activities
+          .filter((entry) => entry.activity === 'view')
+          .map((entry) => ({
+            id: entry.user.uid,
+            forename: entry.user.forename,
+            surname: entry.user.surname
+          })),
+        unknownViewers: 0,
+        editors: activities
+          .filter((entry) => entry.activity === 'edit')
+          .map((entry) => ({
+            id: entry.user.uid,
+            forename: entry.user.forename,
+            surname: entry.user.surname
+          })),
+        unknownEditors: 0
+      }]
+    };
+    const handlers = createHandlers(multiUserService, serviceClient);
+    const connections = users.map((user, index) => ({
+      user,
+      ...trackedConnection([], `connection-${index + 1}`)
+    }));
+
+    await Promise.all(connections.map(({ connection, user }, index) => (
+      handlers.addActivity(connection, 'case-1', user, index === 1 ? 'edit' : 'view')
+    )));
+    await handlers.notify('case-1');
+
+    connections.forEach(({ connectionCalls }, index) => {
+      expect(connectionCalls).to.deep.equal([
+        ['addConnection', keys.case.base('case-1'), `connection-${index + 1}`]
+      ]);
+    });
+    expect(calls).to.deep.equal([[
+      'sendToAll',
+      {
+        event: 'activity',
+        data: [{
+          caseId: 'case-1',
+          viewers: [
+            { id: 'user-a', forename: 'Alice', surname: 'User' },
+            { id: 'user-c', forename: 'Carol', surname: 'User' }
+          ],
+          unknownViewers: 0,
+          editors: [{ id: 'user-b', forename: 'Bob', surname: 'User' }],
+          unknownEditors: 0
+        }]
+      },
+      {}
+    ]]);
   });
 
   it('does not send a duplicate notification claimed by another replica', async () => {
@@ -176,6 +246,33 @@ describe('web-pubsub.service.handlers', () => {
     expect(calls).to.deep.equal([
       ['addActivity', 'case-1', user, 'connection-1', 'view']
     ]);
+  });
+
+  it('broadcasts a view or edit change directly to the Azure case group', async () => {
+    const { connection } = trackedConnection([], 'connection-a');
+    const user = { uid: 'user-a', forename: 'Alice', surname: 'User' };
+    const originalAddActivity = activityService.addActivity;
+    activityService.addActivity = async () => [{
+      caseId: 'case-1',
+      options: { notificationId: 'view-edit-change-1' }
+    }];
+    const handlers = createHandlers(activityService, serviceClient);
+
+    try {
+      await handlers.addActivity(connection, 'case-1', user, 'edit');
+
+      expect(calls[0][0]).to.equal('set');
+      expect(calls[0][1]).to.equal(
+        'web-pubsub:notification:case-1:view-edit-change-1'
+      );
+      expect(calls[1]).to.deep.equal([
+        'sendToAll',
+        { event: 'activity', data: [{ caseId: 'case-1', viewers: [], editors: [] }] },
+        {}
+      ]);
+    } finally {
+      activityService.addActivity = originalAddActivity;
+    }
   });
 
   it('stops watching only the requested case', async () => {

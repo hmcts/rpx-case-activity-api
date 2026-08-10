@@ -1,6 +1,34 @@
 const debug = require('debug')('rpx-case-activity-api:web-pubsub-utils');
 
+const ACTIVITY_MEMBER_PREFIX = 'web-pubsub-connection:';
+
+const toActivityMember = (userId, connectionId) => (
+  `${ACTIVITY_MEMBER_PREFIX}${JSON.stringify([String(userId), String(connectionId)])}`
+);
+
+const userIdFromActivityMember = (member) => {
+  if (typeof member !== 'string' || !member.startsWith(ACTIVITY_MEMBER_PREFIX)) {
+    return member;
+  }
+  try {
+    const decoded = JSON.parse(member.slice(ACTIVITY_MEMBER_PREFIX.length));
+    return Array.isArray(decoded) && decoded.length === 2 ? decoded[0] : member;
+  } catch (error) {
+    debug(`failed to decode activity member '${member}'`);
+    return member;
+  }
+};
+
+const uniqueUserIdsFromActivityMembers = (members) => (
+  Array.isArray(members)
+    ? [...new Set(members.map(userIdFromActivityMember).filter(Boolean))]
+    : []
+);
+
 const other = {
+  toActivityMember,
+  userIdFromActivityMember,
+  uniqueUserIdsFromActivityMembers,
   extractUniqueUserIds: (result, uniqueUserIds) => {
     const userIds = Array.isArray(uniqueUserIds) ? [...uniqueUserIds] : [];
     if (Array.isArray(result)) {

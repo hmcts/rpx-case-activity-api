@@ -60,15 +60,6 @@ function createHandlers(activityService, serviceClient) {
     );
   }
 
-  async function addActivity(connection, caseId, user, activity) {
-    await replaceCaseGroups(connection, [caseId]);
-    logger.warn(
-      `Adding activity for caseId ${caseId} user ${JSON.stringify(userForLog(user))} activity ${activity}`
-    );
-    await activityService.addActivity(caseId, user, connection.id, activity);
-    startRefreshing(connection.id, user);
-  }
-
   async function claimNotification(caseId, notificationId) {
     if (!notificationId) {
       return true;
@@ -114,17 +105,40 @@ function createHandlers(activityService, serviceClient) {
     });
   }
 
+  async function notifyPublishedChanges(changes) {
+    const publishedChanges = Array.isArray(changes)
+      ? changes
+      : [changes].filter(Boolean);
+    await Promise.all(
+      publishedChanges
+        .filter((change) => change?.caseId)
+        .map(({ caseId, options }) => notify(caseId, options))
+    );
+  }
+
+  async function addActivity(connection, caseId, user, activity) {
+    await replaceCaseGroups(connection, [caseId]);
+    logger.warn(
+      `Adding activity for caseId ${caseId} user ${JSON.stringify(userForLog(user))} activity ${activity}`
+    );
+    const changes = await activityService.addActivity(caseId, user, connection.id, activity);
+    startRefreshing(connection.id, user);
+    await notifyPublishedChanges(changes);
+  }
+
   async function removeConnectionActivity(connectionId) {
     logger.warn(`Removing activity for Web PubSub connection ${connectionId}`);
     stopRefreshing(connectionId);
-    await activityService.removeConnectionActivity(connectionId);
+    const change = await activityService.removeConnectionActivity(connectionId);
+    await notifyPublishedChanges(change);
   }
 
   async function watch(connection, caseIds) {
-    await runWatchStage(
+    const change = await runWatchStage(
       'remove-activity',
       () => activityService.removeConnectionActivity(connection.id)
     );
+    await notifyPublishedChanges(change);
     stopRefreshing(connection.id);
     await runWatchStage('update-groups', () => replaceCaseGroups(connection, caseIds));
     const activity = await runWatchStage(
@@ -140,8 +154,9 @@ function createHandlers(activityService, serviceClient) {
     if (caseId) {
       await connection.leave(keys.case.base(caseId));
     }
-    await activityService.removeConnectionActivity(connection.id);
+    const change = await activityService.removeConnectionActivity(connection.id);
     stopRefreshing(connection.id);
+    await notifyPublishedChanges(change);
   }
 
   async function stopAll(connection, caseIds) {
@@ -152,8 +167,9 @@ function createHandlers(activityService, serviceClient) {
     } else {
       await connection.leaveCaseGroups();
     }
-    await activityService.removeUserActivity(connection.id);
+    const change = await activityService.removeUserActivity(connection.id);
     stopRefreshing(connection.id);
+    await notifyPublishedChanges(change);
   }
 
   return {

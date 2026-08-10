@@ -4,7 +4,7 @@ const redisActivityKeys = require('../redis/keys');
 const remove = {
   userActivity: (activity) => {
     debug(`about to remove activity "${activity.activityKey}" for user "${activity.userId}"`);
-    return ['zrem', activity.activityKey, activity.userId];
+    return ['zrem', activity.activityKey, activity.activityMember || activity.userId];
   },
   connectionEntry: (connectionId) => {
     debug(`about to remove activity for connection "${connectionId}"`);
