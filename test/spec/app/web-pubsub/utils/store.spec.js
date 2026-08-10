@@ -1,6 +1,7 @@
 const expect = require('chai').expect;
 const store = require('../../../../../app/web-pubsub/utils/store');
 const keys = require('../../../../../app/web-pubsub/redis/keys');
+const { toActivityMember } = require('../../../../../app/web-pubsub/utils/other');
 
 describe('web-pubsub.utils', () => {
 
@@ -46,7 +47,12 @@ describe('web-pubsub.utils', () => {
         expect(pipe).to.be.an('array').and.have.lengthOf(5);
         expect(pipe[0]).to.equal('set');
         expect(pipe[1]).to.equal(keys.connection(SOCKET_ID));
-        expect(pipe[2]).to.equal(`{"activityKey":"${ACTIVITY_KEY}","caseId":"${CASE_ID}","userId":"${USER_ID}"}`);
+        expect(JSON.parse(pipe[2])).to.deep.equal({
+          activityKey: ACTIVITY_KEY,
+          activityMember: toActivityMember(USER_ID, SOCKET_ID),
+          caseId: CASE_ID,
+          userId: USER_ID
+        });
         expect(pipe[3]).to.equal('EX'); // Expires in...
         expect(pipe[4]).to.equal(TTL);  // ...487 seconds.
       });

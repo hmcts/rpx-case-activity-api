@@ -126,12 +126,13 @@ function createConnectionActivityService(config, redis) {
   const doReplaceActivity = async (caseId, user, connectionId, activity) => {
     const previousActivity = await getConnectionActivity(connectionId);
     const activityKey = keys.case[activity](caseId);
+    const activityMember = utils.toActivityMember(user.uid, connectionId);
     const commands = [];
     if (previousActivity) {
       commands.push(utils.remove.userActivity(previousActivity));
     }
     commands.push(
-      utils.store.userActivity(activityKey, user.uid, utils.score(ttl.activity)),
+      utils.store.activity(activityKey, activityMember, utils.score(ttl.activity)),
       utils.store.connectionActivity(connectionId, activityKey, caseId, user.uid, ttl.user),
       utils.store.userDetails(user, ttl.user)
     );
@@ -173,9 +174,9 @@ function createConnectionActivityService(config, redis) {
       }
 
       const pipeline = [
-        utils.store.userActivity(
+        utils.store.activity(
           currentActivity.activityKey,
-          currentActivity.userId,
+          currentActivity.activityMember || currentActivity.userId,
           utils.score(ttl.activity)
         ),
         ['expire', keys.connection(connectionId), ttl.user]
@@ -199,8 +200,12 @@ function createConnectionActivityService(config, redis) {
     // assembled from two different points in time.
     const activityResult = await execAtomic([...viewerCommands, ...editorCommands]);
     redis.logPipelineFailures(activityResult, 'caseActivitySnapshot');
-    const caseViewers = activityResult.slice(0, viewerCommands.length);
-    const caseEditors = activityResult.slice(viewerCommands.length);
+    const toUserIdResults = (results) => results.map(([error, members]) => [
+      error,
+      utils.uniqueUserIdsFromActivityMembers(members)
+    ]);
+    const caseViewers = toUserIdResults(activityResult.slice(0, viewerCommands.length));
+    const caseEditors = toUserIdResults(activityResult.slice(viewerCommands.length));
     const uniqueUserIds = utils.extractUniqueUserIds(
       caseEditors,
       utils.extractUniqueUserIds(caseViewers, [])

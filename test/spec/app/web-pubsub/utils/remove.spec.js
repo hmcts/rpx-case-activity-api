@@ -1,6 +1,7 @@
 const expect = require('chai').expect;
 const remove = require('../../../../../app/web-pubsub/utils/remove');
 const keys = require('../../../../../app/web-pubsub/redis/keys');
+const { toActivityMember } = require('../../../../../app/web-pubsub/utils/other');
 
 describe('web-pubsub.utils', () => {
 
@@ -18,6 +19,20 @@ describe('web-pubsub.utils', () => {
         expect(pipe[0]).to.equal('zrem');
         expect(pipe[1]).to.equal(ACTIVITY.activityKey);
         expect(pipe[2]).to.equal(ACTIVITY.userId);
+      });
+
+      it('should remove only the stale connection member after a reconnect', () => {
+        const ACTIVITY_KEY = keys.case.view('1234567890');
+        const oldMember = toActivityMember('user-a', 'old-connection');
+        const newMember = toActivityMember('user-a', 'new-connection');
+        const pipe = remove.userActivity({
+          activityKey: ACTIVITY_KEY,
+          activityMember: oldMember,
+          userId: 'user-a'
+        });
+
+        expect(pipe).to.deep.equal(['zrem', ACTIVITY_KEY, oldMember]);
+        expect(pipe[2]).not.to.equal(newMember);
       });
     });
 

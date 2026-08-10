@@ -36,11 +36,14 @@ function redisReconnectDelay(retries) {
   const retryCount = Math.max(Number.parseInt(retries, 10) || 1, 1);
   const { minDelayMs, maxDelayMs } = getReconnectBounds();
   // Keep Redis reconnect attempts periodic and bounded between the configured limits.
-  const delayMs = minDelayMs + ((retryCount - 1) * RETRY_STEP_MS);
+  const delayMs = Math.min(
+    minDelayMs + ((retryCount - 1) * RETRY_STEP_MS),
+    maxDelayMs
+  );
 
   logger.warn(`Redis reconnect attempt #${retryCount}, delaying for ${delayMs}ms`);
 
-  return Math.min(delayMs, maxDelayMs);
+  return delayMs;
 }
 
 module.exports = {

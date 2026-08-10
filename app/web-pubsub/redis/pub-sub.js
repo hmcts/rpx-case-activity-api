@@ -27,7 +27,12 @@ function init(watcher, caseNotifier) {
   if (watcher && typeof caseNotifier === 'function') {
     const pattern = `${keys.prefixes.case}:*`;
     logger.warn(`Subscribing Web PubSub watcher to Redis pattern '${pattern}'`);
-    watcher.psubscribe(pattern);
+    const subscription = watcher.psubscribe(pattern);
+    if (subscription && typeof subscription.catch === 'function') {
+      subscription.catch((error) => {
+        logger.warn('Web PubSub Redis pattern subscription failed', error);
+      });
+    }
     watcher.on('pmessage', (_, room, message) => {
       handlePatternMessage(_, room, caseNotifier, message);
     });
