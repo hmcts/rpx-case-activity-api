@@ -112,7 +112,18 @@ function createHandlers(activityService, serviceClient) {
     await Promise.all(
       publishedChanges
         .filter((change) => change?.caseId)
-        .map(({ caseId, options }) => notify(caseId, options))
+        .map(async ({ caseId, options }) => {
+          try {
+            await notify(caseId, options);
+          } catch (error) {
+            // Activity changes are already persisted at this point. A failure to
+            // broadcast them must not turn the originating client event into a 500.
+            logger.warn(
+              `Failed to broadcast Web PubSub activity for caseId ${caseId}`,
+              error
+            );
+          }
+        })
     );
   }
 

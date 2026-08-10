@@ -275,6 +275,30 @@ describe('web-pubsub.service.handlers', () => {
     }
   });
 
+  it('does not fail the originating activity when the broadcast fails', async () => {
+    const failingServiceClient = {
+      group: () => ({
+        sendToAll: async () => {
+          throw new Error('Web PubSub unavailable');
+        }
+      })
+    };
+    const { connection } = trackedConnection([], 'connection-a');
+    const user = { uid: 'user-a', forename: 'Alice', surname: 'User' };
+    const service = {
+      ...activityService,
+      addActivity: async () => [{
+        caseId: 'case-1',
+        options: { notificationId: 'failed-broadcast-1' }
+      }]
+    };
+    const handlers = createHandlers(service, failingServiceClient);
+
+    await handlers.addActivity(connection, 'case-1', user, 'view');
+
+    expect(calls[0][0]).to.equal('set');
+  });
+
   it('stops watching only the requested case', async () => {
     const { connection, connectionCalls } = trackedConnection([
       keys.case.base('case-1'),
