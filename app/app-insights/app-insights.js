@@ -17,14 +17,19 @@ const getSamplingPercentage = () => {
   return Number.isFinite(samplingPercentage) ? samplingPercentage : defaultSamplingPercentage;
 };
 
-// Map winston level strings to App Insights SeverityLevel enum values.
+// Application Insights 3.x exposes severity values through KnownSeverityLevel.
+// Keep the Contracts fallback for compatibility with older versions.
+const severityLevels = appInsights.KnownSeverityLevel
+  || (appInsights.Contracts && appInsights.Contracts.SeverityLevel);
+
+// Map winston level strings to App Insights severity values.
 const SEVERITY_MAP = {
-  silly: appInsights.Contracts.SeverityLevel.Verbose,
-  debug: appInsights.Contracts.SeverityLevel.Verbose,
-  verbose: appInsights.Contracts.SeverityLevel.Verbose,
-  info: appInsights.Contracts.SeverityLevel.Information,
-  warn: appInsights.Contracts.SeverityLevel.Warning,
-  error: appInsights.Contracts.SeverityLevel.Error,
+  silly: severityLevels.Verbose,
+  debug: severityLevels.Verbose,
+  verbose: severityLevels.Verbose,
+  info: severityLevels.Information,
+  warn: severityLevels.Warning,
+  error: severityLevels.Error,
 };
 
 // Custom winston transport that forwards each log entry to App Insights trackTrace.
@@ -46,7 +51,7 @@ AppInsightsTransport.prototype.log = function log(level, msg, meta, callback) {
 
   const severity = SEVERITY_MAP[level] !== undefined
     ? SEVERITY_MAP[level]
-    : appInsights.Contracts.SeverityLevel.Information;
+    : severityLevels.Information;
 
   const properties = meta && typeof meta === 'object' && Object.keys(meta).length > 0
     ? meta
