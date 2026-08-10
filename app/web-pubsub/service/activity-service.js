@@ -16,17 +16,25 @@ function createConnectionActivityService(config, redis) {
     activity: config.get('redis.webPubSub.activityTtlSec')
   };
 
+  const execAtomic = (commands) => {
+    if (!Array.isArray(commands) || commands.length === 0) {
+      return Promise.resolve([]);
+    }
+    return redis.multi(commands).exec();
+  };
+
   const notifyChange = (caseId, excludedConnectionId) => {
     if (!caseId) {
-      return;
+      return null;
     }
     logger.warn(`Notifying change for caseId ${caseId}`);
-    const message = JSON.stringify({
+    const options = {
       notificationId: randomUUID(),
       timestamp: Date.now(),
       ...(excludedConnectionId ? { excludedConnectionId } : {})
-    });
-    redis.publish(keys.case.base(caseId), message);
+    };
+    redis.publish(keys.case.base(caseId), JSON.stringify(options));
+    return { caseId, options };
   };
 
   // Redis mutations for one connection must run in arrival order. Without this queue,
@@ -84,7 +92,7 @@ function createConnectionActivityService(config, redis) {
       if (removeConnectionEntry) {
         pipeline.push(utils.remove.connectionEntry(connectionId));
       }
-      await redis.pipeline(pipeline).exec();
+      await execAtomic(pipeline);
       return activity.caseId;
     }
     return null;
@@ -101,26 +109,34 @@ function createConnectionActivityService(config, redis) {
     async () => {
       const removedCaseId = await doRemoveConnectionActivity(connectionId);
       if (removedCaseId) {
-        notifyChange(removedCaseId, connectionId);
+        return notifyChange(removedCaseId, connectionId);
       }
+      return null;
     }
   );
 
   const removeUserActivity = (connectionId) => runConnectionOperation(connectionId, async () => {
     const removedCaseId = await doRemoveUserActivity(connectionId);
     if (removedCaseId) {
-      notifyChange(removedCaseId, connectionId);
+      return notifyChange(removedCaseId, connectionId);
     }
+    return null;
   });
 
-  const doAddActivity = async (caseId, user, connectionId, activity) => {
-    // Now store this activity.
+  const doReplaceActivity = async (caseId, user, connectionId, activity) => {
+    const previousActivity = await getConnectionActivity(connectionId);
     const activityKey = keys.case[activity](caseId);
-    return redis.pipeline([
+    const commands = [];
+    if (previousActivity) {
+      commands.push(utils.remove.userActivity(previousActivity));
+    }
+    commands.push(
       utils.store.userActivity(activityKey, user.uid, utils.score(ttl.activity)),
       utils.store.connectionActivity(connectionId, activityKey, caseId, user.uid, ttl.user),
       utils.store.userDetails(user, ttl.user)
-    ]).exec();
+    );
+    await execAtomic(commands);
+    return previousActivity?.caseId || null;
   };
 
   const addActivity = (caseId, user, connectionId, activity) => runConnectionOperation(
@@ -131,17 +147,18 @@ function createConnectionActivityService(config, redis) {
         + `on connection '${connectionId}' with activity '${activity}'`
       );
       if (caseId && user && connectionId && activity) {
-        // First, clear out any existing activity on this connection.
-        const removedCaseId = await doRemoveConnectionActivity(connectionId);
-
-        // Now store this activity.
-        await doAddActivity(caseId, user, connectionId, activity);
+        // Replacing a connection's old activity and adding its new activity must be
+        // atomic. Otherwise another user's notification can observe the gap between
+        // the two operations and broadcast an incomplete multi-user list.
+        const removedCaseId = await doReplaceActivity(caseId, user, connectionId, activity);
+        const changes = [];
         if (removedCaseId !== caseId) {
-          notifyChange(removedCaseId, connectionId);
+          changes.push(notifyChange(removedCaseId, connectionId));
         }
-        notifyChange(caseId);
+        changes.push(notifyChange(caseId));
+        return changes.filter(Boolean);
       }
-      return null;
+      return [];
     }
   );
 
@@ -166,7 +183,7 @@ function createConnectionActivityService(config, redis) {
       if (user?.uid) {
         pipeline.push(utils.store.userDetails(user, ttl.user));
       }
-      await redis.pipeline(pipeline).exec();
+      await execAtomic(pipeline);
       return currentActivity.caseId;
     }
   );
@@ -175,30 +192,19 @@ function createConnectionActivityService(config, redis) {
     if (!Array.isArray(caseIds) || caseIds.length === 0) {
       return [];
     }
-    let uniqueUserIds = [];
-    let caseViewers = [];
-    let caseEditors = [];
     const now = Date.now();
-    const getPromise = async (activity, failureMessage, cb) => {
-      const result = await redis.pipeline(
-        utils.get.caseActivities(caseIds, activity, now)
-      ).exec();
-
-      redis.logPipelineFailures(result, failureMessage);
-      cb(result);
-      uniqueUserIds = utils.extractUniqueUserIds(result, uniqueUserIds);
-    };
-
-    // Set up the promises fore view and edit.
-    const caseViewersPromise = getPromise('view', 'caseViewersPromise', (result) => {
-      caseViewers = result;
-    });
-    const caseEditorsPromise = getPromise('edit', 'caseEditorsPromise', (result) => {
-      caseEditors = result;
-    });
-
-    // Now wait until both promises have been completed.
-    await Promise.all([caseViewersPromise, caseEditorsPromise]);
+    const viewerCommands = utils.get.caseActivities(caseIds, 'view', now);
+    const editorCommands = utils.get.caseActivities(caseIds, 'edit', now);
+    // Read both roles in one transaction so a mixed view/edit update cannot be
+    // assembled from two different points in time.
+    const activityResult = await execAtomic([...viewerCommands, ...editorCommands]);
+    redis.logPipelineFailures(activityResult, 'caseActivitySnapshot');
+    const caseViewers = activityResult.slice(0, viewerCommands.length);
+    const caseEditors = activityResult.slice(viewerCommands.length);
+    const uniqueUserIds = utils.extractUniqueUserIds(
+      caseEditors,
+      utils.extractUniqueUserIds(caseViewers, [])
+    );
 
     // Get all the user details for both viewers and editors.
     const userDetails = await getUserDetails(uniqueUserIds);

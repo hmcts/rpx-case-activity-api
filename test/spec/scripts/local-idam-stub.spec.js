@@ -58,7 +58,17 @@ describe('local-idam-stub', () => {
 
   it('does not leak arbitrary bearer token content into user identity', () => {
     const user = getUserFromAuthorization('Bearer definitely-not-a-jwt');
-    expect(user.uid).to.equal('local-user');
-    expect(user.family_name).to.equal('Caseworker');
+    expect(user.uid).to.match(/^local-[a-f0-9]{16}$/);
+    expect(user.uid).not.to.include('definitely-not-a-jwt');
+    expect(user.family_name).not.to.include('definitely-not-a-jwt');
+  });
+
+  it('gives distinct opaque bearer tokens distinct stable local identities', () => {
+    const first = getUserFromAuthorization('Bearer opaque-token-a');
+    const firstAgain = getUserFromAuthorization('Bearer opaque-token-a');
+    const second = getUserFromAuthorization('Bearer opaque-token-b');
+
+    expect(first).to.deep.equal(firstAgain);
+    expect(first.uid).not.to.equal(second.uid);
   });
 });
