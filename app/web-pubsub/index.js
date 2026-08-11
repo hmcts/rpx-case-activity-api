@@ -3,8 +3,8 @@ const nodeCrypto = require('node:crypto');
 
 // @typespec/ts-http-runtime generates request IDs with globalThis.crypto.randomUUID().
 // Ensure it is available before the Azure Web PubSub SDK is loaded in all Node runtimes.
-if (!globalThis.crypto || typeof globalThis.crypto.randomUUID !== 'function') {
-  globalThis.crypto = nodeCrypto.webcrypto;
+if (!global.crypto || typeof global.crypto.randomUUID !== 'function') {
+  global.crypto = nodeCrypto.webcrypto;
 }
 
 const { WebPubSubServiceClient } = require('@azure/web-pubsub');
