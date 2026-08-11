@@ -89,6 +89,12 @@ function createConnectionActivityService(config, redis) {
     const activity = await getConnectionActivity(connectionId);
     if (activity) {
       const pipeline = [utils.remove.userActivity(activity)];
+      if (activity.activityMember && activity.userId
+        && activity.activityMember !== activity.userId) {
+        // Remove the pre-connection-scoped representation too. This is needed for
+        // activity written before the Web PubSub member format was introduced.
+        pipeline.push(utils.remove.legacyUserActivity(activity));
+      }
       if (removeConnectionEntry) {
         pipeline.push(utils.remove.connectionEntry(connectionId));
       }
@@ -104,24 +110,39 @@ function createConnectionActivityService(config, redis) {
   );
   const doRemoveUserActivity = async (connectionId) => doRemoveActivity(connectionId, false);
 
-  const removeConnectionActivity = (connectionId) => runConnectionOperation(
+  const removeConnectionActivity = (
+    connectionId,
+    includeOriginatingConnection = false
+  ) => runConnectionOperation(
     connectionId,
     async () => {
       const removedCaseId = await doRemoveConnectionActivity(connectionId);
       if (removedCaseId) {
-        return notifyChange(removedCaseId, connectionId);
+        return notifyChange(
+          removedCaseId,
+          includeOriginatingConnection ? undefined : connectionId
+        );
       }
       return null;
     }
   );
 
-  const removeUserActivity = (connectionId) => runConnectionOperation(connectionId, async () => {
-    const removedCaseId = await doRemoveUserActivity(connectionId);
-    if (removedCaseId) {
-      return notifyChange(removedCaseId, connectionId);
+  const removeUserActivity = (
+    connectionId,
+    includeOriginatingConnection = false
+  ) => runConnectionOperation(
+    connectionId,
+    async () => {
+      const removedCaseId = await doRemoveUserActivity(connectionId);
+      if (removedCaseId) {
+        return notifyChange(
+          removedCaseId,
+          includeOriginatingConnection ? undefined : connectionId
+        );
+      }
+      return null;
     }
-    return null;
-  });
+  );
 
   const doReplaceActivity = async (caseId, user, connectionId, activity) => {
     const previousActivity = await getConnectionActivity(connectionId);
@@ -130,6 +151,10 @@ function createConnectionActivityService(config, redis) {
     const commands = [];
     if (previousActivity) {
       commands.push(utils.remove.userActivity(previousActivity));
+      if (previousActivity.activityMember && previousActivity.userId
+        && previousActivity.activityMember !== previousActivity.userId) {
+        commands.push(utils.remove.legacyUserActivity(previousActivity));
+      }
     }
     commands.push(
       utils.store.activity(activityKey, activityMember, utils.score(ttl.activity)),
@@ -173,14 +198,19 @@ function createConnectionActivityService(config, redis) {
         return null;
       }
 
-      const pipeline = [
+      const pipeline = [];
+      if (currentActivity.activityMember && currentActivity.userId
+        && currentActivity.activityMember !== currentActivity.userId) {
+        pipeline.push(utils.remove.legacyUserActivity(currentActivity));
+      }
+      pipeline.push(
         utils.store.activity(
           currentActivity.activityKey,
           currentActivity.activityMember || currentActivity.userId,
           utils.score(ttl.activity)
         ),
         ['expire', keys.connection(connectionId), ttl.user]
-      ];
+      );
       if (user?.uid) {
         pipeline.push(utils.store.userDetails(user, ttl.user));
       }
@@ -202,7 +232,14 @@ function createConnectionActivityService(config, redis) {
     redis.logPipelineFailures(activityResult, 'caseActivitySnapshot');
     const toUserIdResults = (results) => results.map(([error, members]) => [
       error,
-      utils.uniqueUserIdsFromActivityMembers(members)
+      // Connection-scoped members are the only entries that can be tied to a
+      // currently managed Web PubSub connection. Ignore legacy plain user IDs,
+      // which can survive a backend restart and otherwise appear indefinitely.
+      utils.uniqueUserIdsFromActivityMembers(
+        Array.isArray(members)
+          ? members.filter((member) => utils.userIdFromActivityMember(member) !== member)
+          : []
+      )
     ]);
     const caseViewers = toUserIdResults(activityResult.slice(0, viewerCommands.length));
     const caseEditors = toUserIdResults(activityResult.slice(viewerCommands.length));

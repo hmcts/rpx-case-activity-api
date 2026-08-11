@@ -94,7 +94,10 @@ describe('web-pubsub.service.activity-service', () => {
     multi: (commands) => MOCK_REDIS.pipeline(commands),
     casePipeline: (pipes) => {
       return pipes.map(() => {
-        return [null, [USER_ID, 'MISSING']];
+        return [null, [
+          utils.toActivityMember(USER_ID, 'connection-1'),
+          utils.toActivityMember('MISSING', 'connection-2')
+        ]];
       });
     },
     userPipeline: (pipes) => {
@@ -252,6 +255,33 @@ describe('web-pubsub.service.activity-service', () => {
       expectNotificationSent(CASE_ID, NOW);
       expectNotificationExcludesConnection(CASE_ID, SOCKET_ID);
     });
+
+    it('removes both connection-scoped and legacy user activity members', async () => {
+      const SOCKET_ID = 'abcdef123456';
+      const activityMember = utils.toActivityMember(USER_ID, SOCKET_ID);
+      const originalGet = MOCK_REDIS.get;
+      MOCK_REDIS.get = (key) => {
+        MOCK_REDIS.gets.push(key);
+        return JSON.stringify({
+          activityKey: keys.case.view(CASE_ID),
+          activityMember,
+          caseId: CASE_ID,
+          userId: USER_ID
+        });
+      };
+
+      try {
+        await activityService.removeConnectionActivity(SOCKET_ID);
+
+        const pipes = MOCK_REDIS.pipelines[0];
+        expect(pipes).to.have.lengthOf(3);
+        expectPipelineContains(pipes[0], 'zrem', keys.case.view(CASE_ID), activityMember);
+        expectPipelineContains(pipes[1], 'zrem', keys.case.view(CASE_ID), USER_ID);
+        expectPipelineContains(pipes[2], 'del', keys.connection(SOCKET_ID));
+      } finally {
+        MOCK_REDIS.get = originalGet;
+      }
+    });
     it('should handle a null connectionId', async () => {
       await activityService.removeConnectionActivity(null);
       expectNoPipelineCalls();
@@ -407,8 +437,8 @@ describe('web-pubsub.service.activity-service', () => {
 
       MOCK_REDIS.casePipeline = (pipes) => pipes.map((pipe) => {
         const userIds = pipe[1].endsWith(':viewers')
-          ? ['viewer-1', 'viewer-2', 'viewer-3']
-          : ['editor-1', 'editor-2', 'editor-3'];
+          ? ['viewer-1', 'viewer-2', 'viewer-3'].map((id) => utils.toActivityMember(id, `${id}-connection`))
+          : ['editor-1', 'editor-2', 'editor-3'].map((id) => utils.toActivityMember(id, `${id}-connection`));
         return [null, userIds];
       });
       MOCK_REDIS.userPipeline = (pipes) => pipes.map((pipe) => {
@@ -460,6 +490,22 @@ describe('web-pubsub.service.activity-service', () => {
       }
     });
 
+    it('should ignore legacy plain user members left by older activity records', async () => {
+      const originalCasePipeline = MOCK_REDIS.casePipeline;
+      MOCK_REDIS.casePipeline = (pipes) => pipes.map(() => [null, [USER_ID]]);
+
+      try {
+        const result = await activityService.getActivityForCases([CASE_ID]);
+
+        expect(result[0].viewers).to.deep.equal([]);
+        expect(result[0].editors).to.deep.equal([]);
+        expect(result[0].unknownViewers).to.equal(0);
+        expect(result[0].unknownEditors).to.equal(0);
+      } finally {
+        MOCK_REDIS.casePipeline = originalCasePipeline;
+      }
+    });
+
     it('should count unknown viewers and editors independently', async () => {
       const CASE_IDS = ['1234567890'];
       const originalCasePipeline = MOCK_REDIS.casePipeline;
@@ -471,8 +517,9 @@ describe('web-pubsub.service.activity-service', () => {
 
       MOCK_REDIS.casePipeline = (pipes) => pipes.map((pipe) => {
         const userIds = pipe[1].endsWith(':viewers')
-          ? ['known-viewer', 'missing-viewer']
-          : ['known-editor', 'missing-editor-1', 'missing-editor-2'];
+          ? ['known-viewer', 'missing-viewer'].map((id) => utils.toActivityMember(id, `${id}-connection`))
+          : ['known-editor', 'missing-editor-1', 'missing-editor-2']
+            .map((id) => utils.toActivityMember(id, `${id}-connection`));
         return [null, userIds];
       });
       MOCK_REDIS.userPipeline = (pipes) => pipes.map((pipe) => {

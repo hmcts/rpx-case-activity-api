@@ -105,7 +105,7 @@ function createHandlers(activityService, serviceClient) {
     });
   }
 
-  async function notifyPublishedChanges(changes) {
+  async function notifyPublishedChanges(changes, includeOriginatingConnection = false) {
     const publishedChanges = Array.isArray(changes)
       ? changes
       : [changes].filter(Boolean);
@@ -114,7 +114,10 @@ function createHandlers(activityService, serviceClient) {
         .filter((change) => change?.caseId)
         .map(async ({ caseId, options }) => {
           try {
-            await notify(caseId, options);
+            const broadcastOptions = includeOriginatingConnection
+              ? { ...options, excludedConnectionId: undefined, excludedSocketId: undefined }
+              : options;
+            await notify(caseId, broadcastOptions);
           } catch (error) {
             // Activity changes are already persisted at this point. A failure to
             // broadcast them must not turn the originating client event into a 500.
@@ -147,9 +150,11 @@ function createHandlers(activityService, serviceClient) {
   async function watch(connection, caseIds) {
     const change = await runWatchStage(
       'remove-activity',
-      () => activityService.removeConnectionActivity(connection.id)
+      () => activityService.removeConnectionActivity(connection.id, true)
     );
-    await notifyPublishedChanges(change);
+    // The connection is still subscribed to its previous case group. Broadcast the removal
+    // before replacing groups so a user navigating to search also clears their old presence.
+    await notifyPublishedChanges(change, true);
     stopRefreshing(connection.id);
     await runWatchStage('update-groups', () => replaceCaseGroups(connection, caseIds));
     const activity = await runWatchStage(
@@ -162,15 +167,21 @@ function createHandlers(activityService, serviceClient) {
 
   async function stop(connection, caseId) {
     logger.warn(`Stop watching case ${caseId} for Web PubSub connection ${connection.id}`);
+    const change = await activityService.removeConnectionActivity(connection.id, true);
+    stopRefreshing(connection.id);
+    // Broadcast while the source connection is still in the case group. The client that
+    // stopped viewing/editing must receive the refreshed list as well as the other clients.
+    await notifyPublishedChanges(change, true);
     if (caseId) {
       await connection.leave(keys.case.base(caseId));
     }
-    const change = await activityService.removeConnectionActivity(connection.id);
-    stopRefreshing(connection.id);
-    await notifyPublishedChanges(change);
   }
 
   async function stopAll(connection, caseIds) {
+    const change = await activityService.removeUserActivity(connection.id, true);
+    stopRefreshing(connection.id);
+    // Keep the connection subscribed until the removal snapshot has been delivered to it.
+    await notifyPublishedChanges(change, true);
     if (Array.isArray(caseIds) && caseIds.length > 0) {
       await Promise.all(
         caseIds.filter(Boolean).map((caseId) => connection.leave(keys.case.base(caseId)))
@@ -178,9 +189,6 @@ function createHandlers(activityService, serviceClient) {
     } else {
       await connection.leaveCaseGroups();
     }
-    const change = await activityService.removeUserActivity(connection.id);
-    stopRefreshing(connection.id);
-    await notifyPublishedChanges(change);
   }
 
   return {

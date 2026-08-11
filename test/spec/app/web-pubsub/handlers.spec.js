@@ -223,8 +223,38 @@ describe('web-pubsub.service.handlers', () => {
       ['emit', 'activity', [{ caseId: 'case-1', viewers: [], editors: [] }]]
     ]);
     expect(calls).to.deep.equal([
-      ['removeConnectionActivity', 'connection-1']
+      ['removeConnectionActivity', 'connection-1', true]
     ]);
+  });
+
+  it('broadcasts removal when an active user navigates back to search', async () => {
+    const { connection, connectionCalls } = trackedConnection([
+      keys.case.base('case-1')
+    ]);
+    const originalRemove = activityService.removeConnectionActivity;
+    activityService.removeConnectionActivity = async () => ({
+      caseId: 'case-1',
+      options: {
+        notificationId: 'watch-removal-1',
+        excludedConnectionId: 'connection-1'
+      }
+    });
+    const handlers = createHandlers(activityService, serviceClient);
+
+    try {
+      await handlers.watch(connection, ['search-case-1']);
+
+      expect(calls).to.deep.include([
+        'sendToAll',
+        { event: 'activity', data: [{ caseId: 'case-1', viewers: [], editors: [] }] },
+        {}
+      ]);
+      expect(connectionCalls).to.deep.include(
+        ['removeConnection', keys.case.base('case-1'), 'connection-1']
+      );
+    } finally {
+      activityService.removeConnectionActivity = originalRemove;
+    }
   });
 
   it('replaces watched cases when view or edit activity starts', async () => {
@@ -313,8 +343,38 @@ describe('web-pubsub.service.handlers', () => {
       ['removeConnection', keys.case.base('case-1'), 'connection-1']
     ]);
     expect(calls).to.deep.equal([
-      ['removeConnectionActivity', 'connection-1']
+      ['removeConnectionActivity', 'connection-1', true]
     ]);
+  });
+
+  it('broadcasts the removal snapshot to the connection that stopped watching', async () => {
+    const { connection, connectionCalls } = trackedConnection([
+      keys.case.base('case-1')
+    ]);
+    const originalRemove = activityService.removeConnectionActivity;
+    activityService.removeConnectionActivity = async () => ({
+      caseId: 'case-1',
+      options: {
+        notificationId: 'stop-notification-1',
+        excludedConnectionId: 'connection-1'
+      }
+    });
+    const handlers = createHandlers(activityService, serviceClient);
+
+    try {
+      await handlers.stop(connection, 'case-1');
+
+      expect(calls.at(-1)).to.deep.equal([
+        'sendToAll',
+        { event: 'activity', data: [{ caseId: 'case-1', viewers: [], editors: [] }] },
+        {}
+      ]);
+      expect(connectionCalls).to.deep.equal([
+        ['removeConnection', keys.case.base('case-1'), 'connection-1']
+      ]);
+    } finally {
+      activityService.removeConnectionActivity = originalRemove;
+    }
   });
 
   it('stops watching all supplied cases while retaining other subscriptions', async () => {
@@ -333,7 +393,7 @@ describe('web-pubsub.service.handlers', () => {
       ['removeConnection', keys.case.base('case-2'), 'connection-1']
     ]);
     expect(calls).to.deep.equal([
-      ['removeUserActivity', 'connection-1']
+      ['removeUserActivity', 'connection-1', true]
     ]);
   });
 
@@ -352,7 +412,7 @@ describe('web-pubsub.service.handlers', () => {
       ['removeConnection', keys.case.base('case-2'), 'connection-1']
     ]);
     expect(calls).to.deep.equal([
-      ['removeUserActivity', 'connection-1']
+      ['removeUserActivity', 'connection-1', true]
     ]);
   });
 });
