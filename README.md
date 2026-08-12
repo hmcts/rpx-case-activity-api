@@ -113,7 +113,7 @@ befta-fw library. To find out more about BEFTA Framework, see the repository and
 The tests can be run using:
 
 ```
-$ yarn test:functional
+$ yarn test:functional.
 ```
 
 or to run using gradle directly:
