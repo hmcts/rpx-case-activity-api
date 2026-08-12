@@ -2,12 +2,16 @@ nodejs:
   ingressHost: ${SERVICE_FQDN}
   image: ${IMAGE_NAME}
   environment:
+    RPX_BASE_URL: http://ccd-data-store-api-{{ .Values.global.environment }}.service.core-compute-{{ .Values.global.environment }}.internal
+    RPX_CASE_ACCESS_CHECK_ENABLED: true
     REDIS_HOST: "{{ .Release.Name }}-redis-master"
     REDIS_PORT: 6379
     REDIS_PASSWORD: fake-password
     REDIS_SSL_ENABLED: ""
     CORS_ORIGIN_WHITELIST: "*"
+    WEB_PUBSUB_ENABLED: false
   keyVaults:
+  replicas: 2
 
 redis:
   enabled: true
@@ -15,3 +19,10 @@ redis:
   auth:
     enabled: true
     password: "fake-password"
+  image:
+    registry: hmctsprod.azurecr.io
+    repository: imported/bitnami/redis
+    
+  global:
+    security:
+      allowInsecureImages: true
