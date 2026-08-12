@@ -124,7 +124,7 @@ $ ./gradlew functional
 ```
 
 ## Some notes on development and test config.
-You need to set the NODE_ENV to make use of environment configuration and DEBUG to see the logs when you run the server
+You need to  set the NODE_ENV to make use of environment configuration and DEBUG to see the logs when you run the server
 ```
 $ export NODE_ENV=dev
 $ export DEBUG='rpx-case-activity-api:*'
