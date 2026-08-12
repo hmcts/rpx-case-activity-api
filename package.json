@@ -1,6 +1,6 @@
 {
   "name": "rpx-case-activity-api",
-  "version": "0.0.2",
+  "version": "0.0.2-debug-bump-up",
   "private": true,
   "engines": {
     "node": "^20.11.0"
@@ -44,7 +44,7 @@
     "connect-timeout": "^1.9.0",
     "cookie": "^0.7.0",
     "cross-env": "^5.2.0",
-    "debug": "~2.6.3",
+    "debug": "4.4.3",
     "express": "^5.0.1",
     "formidable": "^3.5.4",
     "ioredis": "^3.1.4",
