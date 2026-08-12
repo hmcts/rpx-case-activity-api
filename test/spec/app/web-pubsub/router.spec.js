@@ -5,6 +5,7 @@ describe('web-pubsub.router', () => {
   const calls = [];
   const serviceClient = {};
   const handlers = {
+    cleanupReconnectedUser: async (...args) => calls.push(['cleanupReconnectedUser', ...args]),
     addActivity: async (...args) => calls.push(['addActivity', ...args]),
     watch: async (...args) => calls.push(['watch', ...args]),
     stop: async (...args) => calls.push(['stop', ...args]),
@@ -32,16 +33,17 @@ describe('web-pubsub.router', () => {
     response.result = undefined;
   });
 
-  it('accepts a connection and retains the user in connection state', () => {
+  it('cleans stale activity before accepting a reconnected user', async () => {
     const router = createRouter(serviceClient, handlers);
     const user = { uid: 'user-1', forename: 'Test', surname: 'User' };
 
-    router.handleConnect({
-      context: { states: {}, userId: 'user-1' },
+    await router.handleConnect({
+      context: { connectionId: 'connection-1', states: {}, userId: 'user-1' },
       queries: { user: [JSON.stringify(user)] }
     }, response);
 
     expect(response.result).to.deep.equal(['success', { userId: 'user-1' }]);
+    expect(calls[0]).to.deep.equal(['cleanupReconnectedUser', 'user-1', 'connection-1']);
     expect(response.states.user.name).to.equal('Test User');
     expect(response.states.rooms).to.deep.equal([]);
   });

@@ -23,6 +23,31 @@ function createConnectionActivityService(config, redis) {
     return redis.multi(commands).exec();
   };
 
+  const scanKeys = (match) => new Promise((resolve, reject) => {
+    if (!redis.scanStream) {
+      resolve([]);
+      return;
+    }
+    const stream = redis.scanStream({ match, count: 100 });
+    const scannedKeys = [];
+    let settled = false;
+    stream.on('data', (resultKeys) => {
+      scannedKeys.push(...resultKeys);
+    });
+    stream.once('error', (error) => {
+      if (!settled) {
+        settled = true;
+        reject(error);
+      }
+    });
+    stream.once('end', () => {
+      if (!settled) {
+        settled = true;
+        resolve(scannedKeys);
+      }
+    });
+  });
+
   const notifyChange = (caseId, excludedConnectionId) => {
     if (!caseId) {
       return null;
@@ -143,6 +168,62 @@ function createConnectionActivityService(config, redis) {
       return null;
     }
   );
+
+  // A VPN drop can prevent Web PubSub from delivering its disconnected event.
+  // On reconnect, remove this user's old connection-scoped members so activity
+  // from the previous case/role cannot survive the new connection.
+  const removeStaleUserActivity = async (userId, currentConnectionId) => {
+    if (!userId || !redis.scanStream) {
+      return [];
+    }
+
+    try {
+      const keyPrefix = config.get('redis.keyPrefix') || '';
+      const scannedKeys = await scanKeys(
+        `${keyPrefix}${keys.prefixes.case}:*`
+      );
+      const activityKeys = scannedKeys.map((key) => (
+        key.startsWith(keyPrefix) ? key.slice(keyPrefix.length) : key
+      )).filter((key) => /^(c:.*):(viewers|editors)$/.test(key));
+      if (activityKeys.length === 0) {
+        return [];
+      }
+
+      const activityResults = await Promise.all(
+        activityKeys.map((activityKey) => redis.zrange(activityKey, 0, -1))
+      );
+      const staleEntries = [];
+      activityResults.forEach((members, index) => {
+        members.filter((member) => {
+          const connectionId = utils.connectionIdFromActivityMember(member);
+          return connectionId
+            && utils.userIdFromActivityMember(member) === String(userId)
+            && connectionId !== String(currentConnectionId);
+        }).forEach((member) => {
+          staleEntries.push({ activityKey: activityKeys[index], member });
+        });
+      });
+      if (staleEntries.length === 0) {
+        return [];
+      }
+
+      const commands = [];
+      const affectedCaseIds = new Set();
+      staleEntries.forEach(({ activityKey, member }) => {
+        commands.push(['zrem', activityKey, member]);
+        commands.push(['del', keys.connection(utils.connectionIdFromActivityMember(member))]);
+        const match = activityKey.match(/^c:(.*):(viewers|editors)$/);
+        if (match) {
+          affectedCaseIds.add(match[1]);
+        }
+      });
+      await execAtomic(commands);
+      return [...affectedCaseIds].map((caseId) => notifyChange(caseId));
+    } catch (error) {
+      logger.warn(`Failed to remove stale activity for user ${userId}`, error);
+      return [];
+    }
+  };
 
   const doReplaceActivity = async (caseId, user, connectionId, activity) => {
     const previousActivity = await getConnectionActivity(connectionId);
@@ -276,6 +357,7 @@ function createConnectionActivityService(config, redis) {
     redis,
     refreshConnectionActivity,
     removeConnectionActivity,
+    removeStaleUserActivity,
     ttl,
     removeUserActivity
   };

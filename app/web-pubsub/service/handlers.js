@@ -147,6 +147,11 @@ function createHandlers(activityService, serviceClient) {
     await notifyPublishedChanges(change);
   }
 
+  async function cleanupReconnectedUser(userId, connectionId) {
+    const changes = await activityService.removeStaleUserActivity(userId, connectionId);
+    await notifyPublishedChanges(changes, true);
+  }
+
   async function watch(connection, caseIds) {
     const change = await runWatchStage(
       'remove-activity',
@@ -194,6 +199,7 @@ function createHandlers(activityService, serviceClient) {
   return {
     activityService,
     addActivity,
+    cleanupReconnectedUser,
     notify,
     removeConnectionActivity,
     serviceClient,

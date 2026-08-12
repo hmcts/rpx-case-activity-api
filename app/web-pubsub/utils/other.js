@@ -19,6 +19,19 @@ const userIdFromActivityMember = (member) => {
   }
 };
 
+const connectionIdFromActivityMember = (member) => {
+  if (typeof member !== 'string' || !member.startsWith(ACTIVITY_MEMBER_PREFIX)) {
+    return null;
+  }
+  try {
+    const decoded = JSON.parse(member.slice(ACTIVITY_MEMBER_PREFIX.length));
+    return Array.isArray(decoded) && decoded.length === 2 ? decoded[1] : null;
+  } catch (error) {
+    debug(`failed to decode connection from activity member '${member}'`);
+    return null;
+  }
+};
+
 const uniqueUserIdsFromActivityMembers = (members) => (
   Array.isArray(members)
     ? [...new Set(members.map(userIdFromActivityMember).filter(Boolean))]
@@ -28,6 +41,7 @@ const uniqueUserIdsFromActivityMembers = (members) => (
 const other = {
   toActivityMember,
   userIdFromActivityMember,
+  connectionIdFromActivityMember,
   uniqueUserIdsFromActivityMembers,
   extractUniqueUserIds: (result, uniqueUserIds) => {
     const userIds = Array.isArray(uniqueUserIds) ? [...uniqueUserIds] : [];

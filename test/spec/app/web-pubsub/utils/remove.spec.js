@@ -1,12 +1,22 @@
-const expect = require('chai').expect;
+const { expect } = require('chai');
 const remove = require('../../../../../app/web-pubsub/utils/remove');
 const keys = require('../../../../../app/web-pubsub/redis/keys');
-const { toActivityMember } = require('../../../../../app/web-pubsub/utils/other');
+const {
+  connectionIdFromActivityMember,
+  toActivityMember,
+  userIdFromActivityMember
+} = require('../../../../../app/web-pubsub/utils/other');
 
 describe('web-pubsub.utils', () => {
+  it('decodes connection-scoped activity members', () => {
+    const member = toActivityMember('user-a', 'connection-a');
+
+    expect(userIdFromActivityMember(member)).to.equal('user-a');
+    expect(connectionIdFromActivityMember(member)).to.equal('connection-a');
+    expect(connectionIdFromActivityMember('user-a')).to.equal(null);
+  });
 
   describe('remove', () => {
-
     describe('userActivity', () => {
       it('should produce an appopriate pipe', () => {
         const CASE_ID = '1234567890';
@@ -45,7 +55,5 @@ describe('web-pubsub.utils', () => {
         expect(pipe[1]).to.equal(keys.connection(SOCKET_ID));
       });
     });
-
   });
-
 });

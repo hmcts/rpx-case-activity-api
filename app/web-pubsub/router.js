@@ -89,7 +89,7 @@ function errorForLog(error) {
 }
 
 function createRouter(serviceClient, handlers) {
-  function handleConnect(request, response) {
+  async function handleConnect(request, response) {
     const user = parseUser(request);
     logger.warn(
       `Web PubSub connect received connectionId=${request.context.connectionId} `
@@ -107,6 +107,9 @@ function createRouter(serviceClient, handlers) {
       );
       response.fail(401, 'The user does not match the access token');
       return;
+    }
+    if (typeof handlers.cleanupReconnectedUser === 'function') {
+      await handlers.cleanupReconnectedUser(user.uid, request.context.connectionId);
     }
     response.setState('user', user);
     response.setState('rooms', []);
