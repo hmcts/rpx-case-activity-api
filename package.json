@@ -1,6 +1,6 @@
 {
   "name": "rpx-case-activity-api",
-  "version": "0.0.2",
+  "version": "0.0.2-debug-bump-up",
   "private": true,
   "engines": {
     "node": "^20.11.0"
@@ -38,13 +38,13 @@
     "@hmcts/nodejs-healthcheck": "^1.8.0",
     "@hmcts/nodejs-logging": "^4.0.4",
     "@hmcts/properties-volume": "^0.0.14",
-    "applicationinsights": "2.9.8",
+    "applicationinsights": "^3.15.1",
     "body-parser": "^2.3.0",
     "config": "^1.26.1",
     "connect-timeout": "^1.9.0",
     "cookie": "^0.7.0",
     "cross-env": "^5.2.0",
-    "debug": "~2.6.3",
+    "debug": "4.4.3",
     "express": "^5.2.1",
     "formidable": "^3.5.4",
     "ioredis": "^3.1.4",
@@ -100,9 +100,11 @@
     "flat": "^5.0.1",
     "qs": "^6.15.3",
     "semver": "7.7.2",
-    "@grpc/grpc-js": "1.13.4",
+    "@grpc/grpc-js": "^1.14.4",
     "cross-spawn": "^7.0.6",
-    "path-to-regexp": "^8.4.2"
+    "path-to-regexp": "^8.4.2",
+    "@opentelemetry/core": "^2.8.0",
+    "@azure/monitor-opentelemetry": "^1.19.0"
   },
   "packageManager": "yarn@4.9.4"
 }
