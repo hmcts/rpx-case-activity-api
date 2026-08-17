@@ -45,7 +45,7 @@
     "@azure/web-pubsub-express": "^1.0.3",
     "@hmcts/nodejs-healthcheck": "^1.8.0",
     "@hmcts/nodejs-logging": "^4.0.4",
-    "@hmcts/properties-volume": "^0.0.14",
+    "@hmcts/properties-volume": "^1.4.1",
     "applicationinsights": "^3.15.1",
     "body-parser": "^1.20.1",
     "config": "^3.3.12",
