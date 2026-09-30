@@ -12,6 +12,10 @@ const redis = new Redis({
   password: config.get('secrets.rpx.activity-redis-password'),
   tls: config.get('redis.ssl'),
   keyPrefix: config.get('redis.keyPrefix'),
+  // preserve compatibility with the Redis 6 service, which does not support CLIENT SETINFO.
+  disableClientInfo: true,
+  // peserve ioredis 3's behaviour of keeping commands queued while reconnecting.
+  maxRetriesPerRequest: null,
   // log unhandled redis errors
   showFriendlyErrorStack: ENV === 'test' || ENV === 'dev',
 });
