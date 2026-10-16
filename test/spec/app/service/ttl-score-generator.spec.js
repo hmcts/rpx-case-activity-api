@@ -1,26 +1,39 @@
-const { expect } = require('chai');
-const sinon = require('sinon');
-const proxyquire = require('proxyquire');
-const path = require('path');
+const expect = require('chai').expect;
+const config = require('config');
+const sandbox = require("sinon").createSandbox();
+const ttlScoreGenerator = require('../../../../app/service/ttl-score-generator');
 
-describe('TTL Score Generator', () => {
-  it('should compute score as now + ttl seconds', () => {
-    const fixedNow = 1700000000000; // arbitrary fixed timestamp ms
-    const momentStub = sinon.stub().returns({
-      add: (sec, unit) => ({ valueOf: () => fixedNow + (sec * 1000) }),
-      valueOf: () => fixedNow,
-    });
-    const configStub = { get: sinon.stub().withArgs('redis.activityTtlSec').returns(30) };
+describe('service.ttl-score-generator', () => {
 
-    const modulePath = path.resolve(__dirname, '../../../../app/service/ttl-score-generator.js');
-    delete require.cache[modulePath];
-    const ttlScoreGen = proxyquire(modulePath, {
-      moment: momentStub,
-      config: configStub,
-      debug: () => () => {},
-    });
-
-    const score = ttlScoreGen.getScore();
-    expect(score).to.equal(fixedNow + 30000);
+  afterEach(() => {
+    sandbox.restore();
   });
+
+  describe('getScore', () => {
+    it('should handle an activity TTL', () => {
+      const TTL = '12';
+      const NOW = 55;
+      sandbox.stub(Date, 'now').returns(NOW);
+      sandbox.stub(config, 'get').returns(TTL);
+      const score = ttlScoreGenerator.getScore();
+      expect(score).to.equal(12055); // (TTL * 1000) + NOW
+    });
+    it('should handle a numeric TTL', () => {
+      const TTL = 13;
+      const NOW = 55;
+      sandbox.stub(Date, 'now').returns(NOW);
+      sandbox.stub(config, 'get').returns(TTL);
+      const score = ttlScoreGenerator.getScore();
+      expect(score).to.equal(13055); // (TTL * 1000) + NOW
+    });
+    it('should handle a null TTL', () => {
+      const TTL = null;
+      const NOW = 55;
+      sandbox.stub(Date, 'now').returns(NOW);
+      sandbox.stub(config, 'get').returns(TTL);
+      const score = ttlScoreGenerator.getScore();
+      expect(score).to.equal(55); // null TTL => 0
+    });
+  });
+
 });

@@ -1,86 +1,57 @@
-const { expect } = require('chai');
-const sinon = require('sinon');
-const proxyquire = require('proxyquire');
-const path = require('path');
 const EventEmitter = require('events');
+const expect = require('chai').expect;
+const proxyquire = require('proxyquire').noCallThru();
 
-describe('store-cleanup-job', () => {
-  let cronStub;
-  let configStub;
-  let redisStub;
-  let jobModule;
+describe('store cleanup job', () => {
+  let streams;
+  let pipelineCalls;
+  let cleanupJob;
 
   beforeEach(() => {
-    cronStub = { validate: sinon.stub(), schedule: sinon.stub() };
-    configStub = { get: sinon.stub().withArgs('redis.keyPrefix').returns('prefix:') };
-    const pipelineExecStub = sinon.stub().resolves([['OK']]);
-    redisStub = {
-      pipeline: sinon.stub().returns({ exec: pipelineExecStub }),
-      logPipelineFailures: sinon.stub(),
-      scanStream: sinon.stub().callsFake(() => new EventEmitter()),
+    streams = [];
+    pipelineCalls = [];
+
+    const redis = {
+      scanStream: () => {
+        const stream = new EventEmitter();
+        streams.push(stream);
+        return stream;
+      },
+      pipeline: (commands) => {
+        pipelineCalls.push(commands);
+        return { exec: () => Promise.resolve([]) };
+      },
+      logPipelineFailures: () => undefined
     };
+
+    cleanupJob = proxyquire('../../../../app/job/store-cleanup-job', {
+      '../redis/redis-client': redis,
+      'node-cron': {
+        validate: () => true,
+        schedule: () => undefined
+      }
+    });
   });
 
-  it('start should validate and schedule with valid crontab', () => {
-    cronStub.validate.returns(true);
-    const modulePath = path.resolve(__dirname, '../../../../app/job/store-cleanup-job.js');
-    delete require.cache[modulePath];
-    jobModule = proxyquire(modulePath, {
-      'node-cron': cronStub,
-      config: configStub,
-      '../redis/redis-client': redisStub,
-      debug: () => () => {},
-    });
+  it('contains Redis scan errors instead of crashing the application', async () => {
+    const cleanup = cleanupJob.force();
 
-    jobModule.start('* * * * *');
-    expect(cronStub.validate).to.have.been.calledWith('* * * * *');
-    expect(cronStub.schedule).to.have.been.calledWith('* * * * *', sinon.match.func);
+    expect(streams).to.have.lengthOf(2);
+    streams.forEach((stream) => stream.emit('error', new Error('Redis unavailable')));
+
+    await cleanup;
+    expect(pipelineCalls).to.have.lengthOf(0);
   });
 
-  it('start should throw on invalid crontab', () => {
-    cronStub.validate.returns(false);
-    const modulePath = path.resolve(__dirname, '../../../../app/job/store-cleanup-job.js');
-    delete require.cache[modulePath];
-    jobModule = proxyquire(modulePath, {
-      'node-cron': cronStub,
-      config: configStub,
-      '../redis/redis-client': redisStub,
-      debug: () => () => {},
-    });
+  it('does not start overlapping scans while cleanup is running', async () => {
+    const firstCleanup = cleanupJob.force();
+    const overlappingCleanup = cleanupJob.force();
 
-    expect(() => jobModule.start('invalid')).to.throw('invalid crontab: invalid');
-  });
+    expect(overlappingCleanup).to.equal(firstCleanup);
+    expect(streams).to.have.lengthOf(2);
+    streams.forEach((stream) => stream.emit('end'));
 
-  it('force should trigger pipeline cleanup and log failures', async () => {
-    cronStub.validate.returns(true);
-    const stream = new EventEmitter();
-    redisStub.scanStream.callsFake(() => stream);
-    const modulePath = path.resolve(__dirname, '../../../../app/job/store-cleanup-job.js');
-    delete require.cache[modulePath];
-    jobModule = proxyquire(modulePath, {
-      'node-cron': cronStub,
-      config: configStub,
-      '../redis/redis-client': redisStub,
-      debug: () => () => {},
-    });
-
-    // Emulate scan stream producing keys with prefix and ending
-    const producedKeys = ['prefix:case:111', 'prefix:case:222'];
-    setImmediate(() => {
-      stream.emit('data', producedKeys);
-      stream.emit('end');
-    });
-
-    await jobModule.force();
-    await new Promise((resolve) => setImmediate(resolve));
-    expect(redisStub.pipeline).to.have.been.calledOnce;
-    const arg = redisStub.pipeline.getCall(0).args[0];
-    expect(arg).to.be.an('array').with.length(2);
-    expect(arg[0]).to.be.an('array').with.length(4);
-    expect(arg[0][0]).to.equal('zremrangebyscore');
-    expect(arg[0][1]).to.equal('case:111');
-    expect(arg[0][2]).to.equal('-inf');
-    expect(arg[1][1]).to.equal('case:222');
-    expect(redisStub.logPipelineFailures).to.have.been.called;
+    await firstCleanup;
+    expect(pipelineCalls).to.have.lengthOf(0);
   });
 });

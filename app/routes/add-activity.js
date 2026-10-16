@@ -8,6 +8,7 @@ const { ifNotTimedOut } = utils;
 const addActivity = (activityService) => (req, res, next) => {
   const caseId = req.params.caseid;
   const { user } = req.authentication;
+  const { token } = req.authentication;
   const { activity } = req.body;
 
   debug(`ADD_ACTIVITY request - caseId: ${caseId}, userId:${user.uid}, activity:${activity}`);
@@ -18,7 +19,7 @@ const addActivity = (activityService) => (req, res, next) => {
     res.status(BAD_REQUEST).json({ message: `unknown activity: ${activity}` });
     next(err);
   } else {
-    activityService.addActivity(caseId, user, activity)
+    activityService.addActivity(caseId, user, activity, token)
       .then((result) => ifNotTimedOut(req, () => {
         debug(`ADD_ACTIVITY response is ==> ${JSON.stringify(result)}`);
         res.status(201).json({ case: caseId, user: user.uid.toString(), activity });

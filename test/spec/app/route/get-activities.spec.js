@@ -25,7 +25,7 @@ describe("get activities route", () => {
   it("should invoke activity service and return response on successful requests", (done) => {
     let req = {
       params: { caseids: '111, 121' },
-      authentication: { user: { id: 900 } },
+      authentication: { user: { id: 900 }, token: 'Bearer token' },
       timedout: false
     };
     let next = () => {
@@ -42,7 +42,7 @@ describe("get activities route", () => {
 
     getActivitesRoute(req, res, next)
 
-    expect(activityService.getActivities).to.have.been.calledWith(req.params.caseids.split(','), { id : 900 })
+    expect(activityService.getActivities).to.have.been.calledWith(req.params.caseids.split(','), { id : 900 }, 'Bearer token')
   })
 
   it("should not return a result when request is successful after it has timed out", (done) => {
@@ -51,7 +51,7 @@ describe("get activities route", () => {
       params: {
         caseids: '111,121'
       },
-      authentication: { user: { id: 900 } },
+      authentication: { user: { id: 900 }, token: 'Bearer token' },
       timedout: true
     };
 
@@ -78,7 +78,7 @@ describe("get activities route", () => {
       params: {
         caseids: '111,121'
       },
-      authentication: { user: { id: 900 } },
+      authentication: { user: { id: 900 }, token: 'Bearer token' },
       timedout: true
     };
 

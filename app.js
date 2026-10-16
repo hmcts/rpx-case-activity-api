@@ -1,10 +1,12 @@
 const healthcheck = require('@hmcts/nodejs-healthcheck');
+const { Logger } = require('@hmcts/nodejs-logging');
 const express = require('express');
 const logger = require('morgan');
-const bodyParser = require('body-parser');
 const config = require('config');
 const debug = require('debug')('rpx-case-activity-api:app');
 const enableAppInsights = require('./app/app-insights/app-insights');
+
+const appLogger = Logger.getLogger('app');
 
 enableAppInsights();
 
@@ -14,8 +16,10 @@ const corsHandler = require('./app/security/cors');
 
 const redis = require('./app/redis/redis-client');
 const ttlScoreGenerator = require('./app/service/ttl-score-generator');
-const activityService = require('./app/service/activity-service')(config, redis, ttlScoreGenerator);
+const caseAccessChecker = require('./app/service/case-access-checker')(config);
+const activityService = require('./app/service/activity-service')(config, redis, ttlScoreGenerator, caseAccessChecker);
 const activity = require('./app/routes/activity-route')(activityService, config);
+const webPubSub = require('./app/web-pubsub')(redis);
 
 const app = express();
 const appHealth = express();
@@ -41,13 +45,27 @@ if (config.util.getEnv('NODE_ENV') === 'test') {
 }
 
 debug(`starting application with environment: ${config.util.getEnv('NODE_ENV')}`);
+appLogger.warn(`starting application with environment: ${config.util.getEnv('NODE_ENV')}`);
 
+if (webPubSub) {
+  // The Web PubSub middleware must read the raw CloudEvents request stream before
+  // Express body parsers and application authentication middleware.
+  app.use(webPubSub.middleware);
+}
 app.use(corsHandler);
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: false }));
-app.use(bodyParser.text());
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+app.use(express.text());
+
+appLogger.warn('Applying auth checker user only filter');
 app.use(authCheckerUserOnlyFilter);
 
+if (webPubSub) {
+  appLogger.warn('Mounting Azure Web PubSub negotiation route');
+  app.get('/web-pubsub/negotiate', webPubSub.negotiate);
+}
+
+appLogger.warn('Mounting activity route at /');
 app.use('/', activity);
 
 // catch 404 and forward to error handler
@@ -62,15 +80,17 @@ app.use((req, res, next) => {
 /* eslint-disable no-unused-vars */
 app.use((err, req, res, next) => {
   debug(`Error processing request: ${err}`);
+  appLogger.warn(`Error processing request: ${err}`);
 
   // set locals, only providing error in development
   res.locals.message = err.message;
   res.locals.error = req.app.get('env') === 'development' ? err : {};
+
+  appLogger.warn(`Returning error response: ${err.status || 500} - ${err.message}`);
 
   res.status(err.status || 500);
   res.json({
     message: err.message,
   });
 });
-
 module.exports = app;

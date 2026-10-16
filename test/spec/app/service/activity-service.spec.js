@@ -1,17 +1,25 @@
-var redis = require('../../../../app/redis/redis-client');
-var config = require('config');
-var ttlScoreGenerator = require('../../../../app/service/ttl-score-generator');
-var activityService = require('../../../../app/service/activity-service')(config, redis, ttlScoreGenerator);
-var moment = require('moment');
-var chai = require("chai");
-var sinon = require("sinon");
-var sinonChai = require("sinon-chai");
+const redis = require('../../../../app/redis/redis-client');
+const config = require('config');
+const ttlScoreGenerator = require('../../../../app/service/ttl-score-generator');
+let activityService = require('../../../../app/service/activity-service')(config, redis, ttlScoreGenerator);
+const chai = require("chai");
+const sinon = require("sinon");
+const sinonChai = require("sinon-chai");
 chai.should();
-var expect = chai.expect;
+const expect = chai.expect;
 chai.use(sinonChai);
-var sandbox = sinon.createSandbox();
+const sandbox = sinon.createSandbox();
+let caseAccessChecker;
 
 describe("activity service", () => {
+  const createAccessError = () => Object.assign(new Error('denied'), { status: 403 });
+
+  beforeEach(function () {
+    caseAccessChecker = {
+      assertUserHasAccess: sandbox.stub().returns(Promise.resolve())
+    };
+    activityService = require('../../../../app/service/activity-service')(config, redis, ttlScoreGenerator, caseAccessChecker);
+  });
 
   afterEach(function () {
     // completely restore all fakes created through the sandbox
@@ -25,21 +33,22 @@ describe("activity service", () => {
   const TIMESTAMP = 40;
   let pipStub;
 
-  it("addActivity should create a redis pipeline with the correct redis commands for edit", () => {
+  it("addActivity should create a redis pipeline with the correct redis commands for edit", async () => {
     pipStub = sinon.stub();
     pipStub.exec = () => "result";
     sandbox.stub(redis, 'pipeline').returns(pipStub);
     sandbox.stub(ttlScoreGenerator, 'getScore').returns(SCORE);
     sandbox.stub(config, 'get').returns(USER_DETAILS_TTL);
 
-    const result = activityService.addActivity(CASE_ID, { uid: USER_ID }, 'edit');
+    const result = await activityService.addActivity(CASE_ID, { uid: USER_ID }, 'edit');
 
+    expect(caseAccessChecker.assertUserHasAccess).to.have.been.calledWith([CASE_ID], undefined);
     expect(redis.pipeline).to.have.been.calledWith([['zadd', `case:${CASE_ID}:editors`, SCORE, USER_ID], ['set', `user:${USER_ID}`, '{}', 'EX', USER_DETAILS_TTL]]);
     expect(config.get).to.have.been.calledWith('redis.userDetailsTtlSec');
     expect(result).to.equal("result");
   });
 
-  it("addActivity should create a redis pipeline with the correct redis commands for view", () => {
+  it("addActivity should create a redis pipeline with the correct redis commands for view", async () => {
     pipStub = sinon.stub();
     pipStub.exec = () => "result";
     sandbox.stub(redis, 'pipeline').returns(pipStub);
@@ -47,14 +56,29 @@ describe("activity service", () => {
 
     sandbox.stub(config, 'get').returns(USER_DETAILS_TTL);
 
-    const result = activityService.addActivity(CASE_ID, { uid: USER_ID }, 'view')
+    const result = await activityService.addActivity(CASE_ID, { uid: USER_ID }, 'view');
+    expect(caseAccessChecker.assertUserHasAccess).to.have.been.calledWith([CASE_ID], undefined);
     expect(redis.pipeline).to.have.been.calledWith([['zadd', `case:${CASE_ID}:viewers`, SCORE, USER_ID], ['set', `user:${USER_ID}`, '{}', 'EX', USER_DETAILS_TTL]]);
     expect(config.get).to.have.been.calledWith('redis.userDetailsTtlSec');
-    expect(result).to.equal("result")
+    expect(result).to.equal("result");
+  });
+
+  it("addActivity should reject when case access check fails", async () => {
+    const accessError = createAccessError();
+    caseAccessChecker.assertUserHasAccess.returns(Promise.reject(accessError));
+    sandbox.spy(redis, 'pipeline');
+
+    try {
+      await activityService.addActivity(CASE_ID, { uid: USER_ID }, 'view', 'Bearer token');
+      throw new Error('expected addActivity to reject');
+    } catch (error) {
+      expect(error).to.equal(accessError);
+      expect(redis.pipeline).not.to.have.been.called;
+    }
   });
 
   it("getActivities should create a redis pipeline with the correct redis commands for getViewers", (done) => {
-    sandbox.stub(moment, 'now').returns(TIMESTAMP);
+    sandbox.stub(Date, 'now').returns(TIMESTAMP);
     sandbox.stub(config, 'get').returns(USER_DETAILS_TTL);
     sandbox.stub(redis, "pipeline").callsFake(function (args) {
       argStr = JSON.stringify(args);
@@ -91,7 +115,7 @@ describe("activity service", () => {
   })
 
   it("getActivities should return unknown users if users detail are missing", (done) => {
-    sandbox.stub(moment, 'now').returns(TIMESTAMP);
+    sandbox.stub(Date, 'now').returns(TIMESTAMP);
     sandbox.stub(config, 'get').returns(USER_DETAILS_TTL);
     sandbox.stub(redis, "pipeline").callsFake(function (args) {
       argStr = JSON.stringify(args);
@@ -125,7 +149,7 @@ describe("activity service", () => {
   })
 
   it("getActivities should not return in the list of viewers the requesting user id", (done) => {
-    sandbox.stub(moment, 'now').returns(TIMESTAMP);
+    sandbox.stub(Date, 'now').returns(TIMESTAMP);
     sandbox.stub(config, 'get').returns(USER_DETAILS_TTL);
     sandbox.stub(redis, "pipeline").callsFake(function (args) {
       argStr = JSON.stringify(args);
@@ -159,7 +183,7 @@ describe("activity service", () => {
   })
 
   it("getActivities should not return the requesting user id in the list of unknown viewers", (done) => {
-    sandbox.stub(moment, 'now').returns(TIMESTAMP);
+    sandbox.stub(Date, 'now').returns(TIMESTAMP);
     sandbox.stub(config, 'get').returns(USER_DETAILS_TTL);
     sandbox.stub(redis, "pipeline").callsFake(function (args) {
       argStr = JSON.stringify(args);
@@ -193,5 +217,19 @@ describe("activity service", () => {
       }]);
       done();
     }).catch(err => console.log('error', done(err)));
-  })
+  });
+
+  it("getActivities should reject when case access check fails", async () => {
+    const accessError = createAccessError();
+    caseAccessChecker.assertUserHasAccess.returns(Promise.reject(accessError));
+    sandbox.spy(redis, 'pipeline');
+
+    try {
+      await activityService.getActivities(['767'], { uid: '242' }, 'Bearer token');
+      throw new Error('expected getActivities to reject');
+    } catch (error) {
+      expect(error).to.equal(accessError);
+      expect(redis.pipeline).not.to.have.been.called;
+    }
+  });
 });

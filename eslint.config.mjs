@@ -17,9 +17,17 @@ export default defineConfig([{
     extends: compat.extends("airbnb-base"),
 
     languageOptions: {
+        ecmaVersion: 2020,
         globals: {
             ...globals.mocha,
             ...globals.jasmine,
         },
+    },
+    rules: {
+        "comma-dangle": 0,
+        "arrow-body-style": 0,
+        "no-param-reassign": [2, { props: false }],
+        "no-unused-vars": ["error", { vars: "all", args: "after-used", ignoreRestSiblings: true, caughtErrors: "none" }],
+        "linebreak-style": ["error", process.platform === "win32" ? "windows" : "unix"],
     },
 }]);
