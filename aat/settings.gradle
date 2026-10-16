@@ -6,7 +6,14 @@ pluginManagement {
             name = 'MavenCentralMirror'
             url = uri('https://maven-central.storage-download.googleapis.com/maven2/')
         }
-        gradlePluginPortal()
+        gradlePluginPortal {
+            // Resolve only the plugin marker and implementation here; public
+            // transitive dependencies use the mirror instead of Central redirects.
+            content {
+                includeGroup 'com.github.spacialcircumstances.gradle-cucumber-reporting'
+                includeGroup 'com.github.spacialcircumstances'
+            }
+        }
     }
 }
 

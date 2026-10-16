@@ -12,7 +12,8 @@ java {
 // tag::repositories[]
 repositories {
     mavenLocal()
-    // Prefer the Central mirror to avoid HTTP 429 responses on shared CI agents.
+    // Use the mirror without a direct Central fallback: version ranges query
+    // every matching repository, even when the mirror already has a match.
     maven {
         name = 'MavenCentralMirror'
         url = uri('https://maven-central.storage-download.googleapis.com/maven2/')
@@ -20,16 +21,12 @@ repositories {
             excludeGroup 'com.github.hmcts'
         }
     }
-    mavenCentral {
-        // HMCTS packages are hosted in Azure Artifacts. A Central HTTP 429
-        // stops resolution before Gradle can try that repository.
-        content {
-            excludeGroup 'com.github.hmcts'
-        }
-    }
     maven {
         name = "AzureArtifacts"
         url = uri("https://pkgs.dev.azure.com/hmcts/Artifacts/_packaging/hmcts-lib/maven/v1")
+        content {
+            includeGroup 'com.github.hmcts'
+        }
     }
 }
 // end::repositories[]
