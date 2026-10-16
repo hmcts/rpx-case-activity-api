@@ -1,1 +1,13 @@
+pluginManagement {
+    repositories {
+        // Plugin dependencies also need the mirror: the Plugin Portal redirects
+        // Maven Central downloads to an endpoint that rate-limits Jenkins agents.
+        maven {
+            name = 'MavenCentralMirror'
+            url = uri('https://maven-central.storage-download.googleapis.com/maven2/')
+        }
+        gradlePluginPortal()
+    }
+}
+
 rootProject.name = 'rpx-case-activity-api'

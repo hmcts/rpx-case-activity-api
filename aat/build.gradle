@@ -12,6 +12,11 @@ java {
 // tag::repositories[]
 repositories {
     mavenLocal()
+    // Prefer the Central mirror to avoid HTTP 429 responses on shared CI agents.
+    maven {
+        name = 'MavenCentralMirror'
+        url = uri('https://maven-central.storage-download.googleapis.com/maven2/')
+    }
     mavenCentral()
     maven {
         name = "AzureArtifacts"
