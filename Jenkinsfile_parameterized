@@ -1,5 +1,5 @@
 #!groovy
-@Library("Infrastructure@master") _
+@Library("Infrastructure@2.9.0") _
 
 def vault = "rpx"
 
