@@ -3,7 +3,7 @@
   "version": "0.0.2-debug-bump-up",
   "private": true,
   "engines": {
-    "node": "^20.11.0"
+    "node": "^24.22.1"
   },
   "scripts": {
     "setup": "cross-env NODE_PATH=. yarn node --version",
