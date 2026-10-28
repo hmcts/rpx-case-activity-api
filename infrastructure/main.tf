@@ -107,9 +107,18 @@ module "managed_redis" {
   clustering_policy                  = "EnterpriseCluster"
 }
 
+data "azurerm_managed_redis" "connection" {
+  name                = "${var.product}-${var.component}-${var.env}"
+  resource_group_name = module.managed_redis.resource_group_name
+
+  # An imported cluster can lack its default database. Read connection details
+  # after the module creates it rather than using null outputs from the import.
+  depends_on = [module.managed_redis]
+}
+
 resource "azurerm_key_vault_secret" "managed_redis_connection_string" {
   name         = "activity-managed-redis-connection-string"
-  value        = "rediss://:${urlencode(module.managed_redis.primary_access_key)}@${module.managed_redis.hostname}:${module.managed_redis.port}"
+  value        = "rediss://:${urlencode(data.azurerm_managed_redis.connection.default_database[0].primary_access_key)}@${data.azurerm_managed_redis.connection.hostname}:${data.azurerm_managed_redis.connection.default_database[0].port}"
   key_vault_id = data.azurerm_key_vault.key_vault.id
 }
 
