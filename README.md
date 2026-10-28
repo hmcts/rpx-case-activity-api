@@ -46,6 +46,18 @@ See [redis documentation](https://redis.io) for details
 
 Configuration is achieved through [node-config](https://github.com/lorenwest/node-config).
 
+Deployed environments use the `activity-managed-redis-connection-string` Key Vault
+secret created by Terraform. It contains a `rediss://` URL with the managed cache
+hostname, port and URL-encoded access key. For an environment variable override,
+set `REDIS_CONNECTION_STRING`; this takes precedence over the separate Redis settings.
+TLS certificate verification remains enabled.
+
+With no connection string, local development and preview deployments use
+`REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD` and `REDIS_SSL_ENABLED`.
+Preview deployments continue to run the Redis Helm dependency.
+The legacy Azure cache remains provisioned during the migration; removing it is
+a separate step after verifying the managed cache in each environment.
+
 
 ## Unit tests
 The tests can be run using:
