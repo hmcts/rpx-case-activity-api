@@ -1,16 +1,39 @@
 const config = require('config');
 const debug = require('debug')('rpx-case-activity-api:redis-client');
 const Redis = require('ioredis');
+const { URL } = require('url');
 
 const ERROR = 0;
 const RESULT = 1;
 const ENV = config.util.getEnv('NODE_ENV');
 
+const connectionString = config.get('secrets.rpx.activity-managed-redis-connection-string');
+let connectionOptions;
+
+if (connectionString) {
+  const endpoint = new URL(connectionString);
+  if (endpoint.protocol !== 'rediss:') {
+    throw new Error('Managed Redis requires a rediss:// connection string');
+  }
+  // ioredis 3 does not enable TLS automatically for rediss:// URLs.
+  connectionOptions = {
+    host: endpoint.hostname,
+    port: Number(endpoint.port || 10000),
+    password: decodeURIComponent(endpoint.password),
+    tls: { servername: endpoint.hostname },
+  };
+} else {
+  const ssl = config.get('redis.ssl');
+  connectionOptions = {
+    port: config.get('redis.port'),
+    host: config.get('redis.host'),
+    password: config.get('secrets.rpx.activity-redis-password'),
+    tls: ssl === true || ssl === 'true' ? {} : undefined,
+  };
+}
+
 const redis = new Redis({
-  port: config.get('redis.port'),
-  host: config.get('redis.host'),
-  password: config.get('secrets.rpx.activity-redis-password'),
-  tls: config.get('redis.ssl'),
+  ...connectionOptions,
   keyPrefix: config.get('redis.keyPrefix'),
   // log unhandled redis errors
   showFriendlyErrorStack: ENV === 'test' || ENV === 'dev',

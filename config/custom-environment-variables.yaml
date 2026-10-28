@@ -25,5 +25,6 @@ appInsights:
 
 secrets:
   rpx:
+    activity-managed-redis-connection-string: REDIS_CONNECTION_STRING
     activity-redis-password: REDIS_PASSWORD
     app-insights-connection-string-at: ""
