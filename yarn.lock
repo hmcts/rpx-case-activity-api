@@ -6183,7 +6183,7 @@ __metadata:
     minimatch: "npm:^10.2.6"
     mocha: "npm:^11.8.0"
     mock-require: "npm:^3.0.3"
-    moment: "npm:^2.29.4"
+    moment: "npm:^2.31.0"
     morgan: "npm:^1.11.0"
     nocache: "npm:^2.1.0"
     nock: "npm:^12.0.3"
