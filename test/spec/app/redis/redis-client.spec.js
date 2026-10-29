@@ -9,10 +9,9 @@ describe('Redis connection configuration', () => {
   beforeEach(() => {
     settings = {
       'secrets.rpx.activity-managed-redis-connection-string': '',
-      'secrets.rpx.activity-redis-password': 'preview-password',
+      'redis.password': 'preview-password',
       'redis.host': 'preview-redis-master',
       'redis.port': '6379',
-      'redis.ssl': '',
       'redis.keyPrefix': 'activity:',
     };
   });
@@ -53,13 +52,6 @@ describe('Redis connection configuration', () => {
     expect(options.port).to.equal(6379);
     expect(options.password).to.equal('preview-password');
     expect(options.tls).to.equal(undefined);
-  });
-
-  [true, 'true'].forEach((ssl) => {
-    it(`enables legacy TLS when configured as ${typeof ssl}`, () => {
-      settings['redis.ssl'] = ssl;
-      expect(loadClient().tls).to.deep.equal({});
-    });
   });
 
   it('rejects an unencrypted managed connection string', () => {

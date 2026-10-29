@@ -9,7 +9,6 @@ redis:
   host: REDIS_HOST
   port: REDIS_PORT
   password: REDIS_PASSWORD
-  ssl: REDIS_SSL_ENABLED
   keyPrefix: REDIS_KEY_PREFIX
   activityTtlSec: REDIS_ACTIVITY_TTL
   userDetailsTtlSec: REDIS_USER_DETAILS_TTL
@@ -26,5 +25,4 @@ appInsights:
 secrets:
   rpx:
     activity-managed-redis-connection-string: REDIS_CONNECTION_STRING
-    activity-redis-password: REDIS_PASSWORD
     app-insights-connection-string-at: ""

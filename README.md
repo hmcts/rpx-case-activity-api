@@ -53,10 +53,8 @@ set `REDIS_CONNECTION_STRING`; this takes precedence over the separate Redis set
 TLS certificate verification remains enabled.
 
 With no connection string, local development and preview deployments use
-`REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD` and `REDIS_SSL_ENABLED`.
+`REDIS_HOST`, `REDIS_PORT` and `REDIS_PASSWORD` without TLS.
 Preview deployments continue to run the Redis Helm dependency.
-The legacy Azure cache remains provisioned during the migration; removing it is
-a separate step after verifying the managed cache in each environment.
 
 
 ## Unit tests
