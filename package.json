@@ -48,7 +48,7 @@
     "express": "^5.2.1",
     "formidable": "^3.5.4",
     "ioredis": "^3.1.4",
-    "joi": "^17.2.1",
+    "joi": "^18.3.0",
     "jwt-decode": "^2.2.0",
     "minimatch": "^10.2.6",
     "moment": "^2.31.0",
