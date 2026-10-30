@@ -40,13 +40,6 @@ data "azurerm_subnet" "core_infra_redis_subnet" {
   resource_group_name  = "core-infra-${var.env}"
 }
 
-
-resource "azurerm_key_vault_secret" "redis_connection_string" {
-  name         = "activity-redis-password"
-  value        = module.redis-activity-service.access_key
-  key_vault_id = data.azurerm_key_vault.key_vault.id
-}
-
 module "application_insights" {
   source = "git@github.com:hmcts/terraform-module-application-insights?ref=4.x"
 
@@ -67,21 +60,6 @@ resource "azurerm_resource_group" "rg" {
   location = var.location
 
   tags = var.common_tags
-}
-
-module "redis-activity-service" {
-  source                        = "git@github.com:hmcts/cnp-module-redis?ref=4.x"
-  product                       = "${var.product}-activity-service"
-  location                      = var.location
-  env                           = var.env
-  private_endpoint_enabled      = true
-  redis_version                 = "6"
-  business_area                 = "cft" # cft or sds
-  public_network_access_enabled = false
-  common_tags                   = var.common_tags
-  sku_name                      = var.sku_name
-  family                        = var.family
-  capacity                      = var.capacity
 }
 
 module "managed_redis" {

@@ -23,12 +23,10 @@ if (connectionString) {
     tls: { servername: endpoint.hostname },
   };
 } else {
-  const ssl = config.get('redis.ssl');
   connectionOptions = {
     port: config.get('redis.port'),
     host: config.get('redis.host'),
-    password: config.get('secrets.rpx.activity-redis-password'),
-    tls: ssl === true || ssl === 'true' ? {} : undefined,
+    password: config.get('redis.password'),
   };
 }
 
