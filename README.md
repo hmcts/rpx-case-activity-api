@@ -67,6 +67,13 @@ See [redis documentation](https://redis.io) for details
 
 Configuration is achieved through [node-config](https://github.com/lorenwest/node-config).
 
+Deployed environments use the Key Vault secret `activity-managed-redis-connection-string`
+to connect to Azure Managed Redis over TLS. The application also accepts this `rediss://`
+URL through `REDIS_CONNECTION_STRING`. It takes precedence over the legacy host, port,
+and password settings; without it, local development retains the existing Redis defaults.
+The deployed chart must mount that secret. Demo already mounts it, so its Redis fix
+requires an updated application image without changing the current chart or infrastructure.
+
 ## Azure Web PubSub
 
 Clients first call `GET /web-pubsub/negotiate` with their normal Authorization header, then
