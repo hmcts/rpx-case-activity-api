@@ -96,6 +96,23 @@ The Web PubSub hub upstream must point to
 `https://<service-host>/api/webpubsub/hubs/hub/`. Terraform receives this value through
 `web_pubsub_event_handler_url`.
 
+Demo uses the callback URL
+`https://rpx-case-activity-api.demo.platform.hmcts.net/api/webpubsub/hubs/hub/`.
+The callback ingress in `cnp-flux-config/apps/xui/demo/base` routes only the webhook
+and `/health/liveness` to `xui-case-activity-api-nodejs:80`. The existing internal
+ingress used by Int1 is retained. The matching `frontends` entry in
+`azure-platform-terraform/environments/demo/demo.tfvars` provides the HTTPS gateway route.
+
+Deploy the callback ingress and gateway/DNS configuration first. Verify an OPTIONS
+request to the callback with `WebHook-Request-Origin` set to
+`rpx-case-activity-api-webpubsub-demo.webpubsub.azure.com` returns a successful status
+and the matching `WebHook-Allowed-Origin` header. Then apply the demo hub handler
+configuration and verify a browser connection through Azure Web PubSub Live Trace.
+Apply the hub configuration from the current infrastructure baseline: the legacy Redis
+Terraform on this feature branch must not replace the deployed Managed Redis resources.
+Public access on the Web PubSub resource remains disabled; `tunnel:///` is for local
+development and must not replace this shared demo handler during deployed testing.
+
 
 ## Unit tests.
 The tests can be run using:
