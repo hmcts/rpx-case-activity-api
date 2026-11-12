@@ -98,7 +98,7 @@
     "cookiejar": "^2.1.4",
     "flat": "^5.0.1",
     "qs": "^6.16.1",
-    "semver": "7.8.5",
+    "semver": "7.8.6",
     "@grpc/grpc-js": "^1.14.5",
     "@azure/msal-node": "^7.1.2",
     "@opentelemetry/instrumentation-mysql": "^0.67.0",
