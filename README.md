@@ -27,8 +27,8 @@ Preview deployments continue to run the Redis Helm dependency.
 Prerequisites
 -------------
 
-- Node.js 20.20.2, as specified by .nvmrc. package.json accepts Node.js
-  versions in the ^20.11.0 range.
+- Node.js 24.22.2, as specified by .nvmrc. package.json accepts Node.js
+  versions in the ^24.22.2 range.
 - Yarn 4.18.0, as specified by package.json.
 - Docker, if you need a local Redis instance.
 - Access to the HMCTS VPN and approved environment credentials when calling
