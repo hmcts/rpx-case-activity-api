@@ -69,7 +69,7 @@ function createCaseAccessChecker(config) {
     };
   };
 
-  const assertUserHasAccess = (caseIds, authorization) => {
+  const assertUserHasAccess = (caseIds, authorization, serviceAuthorization) => {
     if (!isEnabled()) {
       return Promise.resolve();
     }
@@ -81,9 +81,12 @@ function createCaseAccessChecker(config) {
     const uniqueCaseIds = [...new Set(caseIds.filter((caseId) => !!caseId))];
     const baseUrl = getBaseUrl();
 
-    return Promise.all(uniqueCaseIds.map((caseId) => fetch(`${baseUrl}/cases/${caseId}`, {
+    return Promise.all(uniqueCaseIds.map((caseId) => fetch(`${baseUrl}/cases/${encodeURIComponent(caseId)}`, {
+      timeout: 5000,
+      redirect: 'error',
       headers: {
         Authorization: authorization,
+        ...(serviceAuthorization ? { ServiceAuthorization: serviceAuthorization } : {}),
       },
     }))).catch((error) => {
       throw toError(mapError(error));

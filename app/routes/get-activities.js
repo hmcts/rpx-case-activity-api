@@ -10,18 +10,18 @@ const getActivities = (activityService) => (req, res, next) => {
 
   const caseIds = req.params.caseids.split(',');
   const { user } = req.authentication;
-  const { token } = req.authentication;
+  const { token, serviceAuthorization } = req.authentication;
 
   logger.warn(`GET_ACTIVITIES request for caseIds: ${caseIds}`);
 
   debug(`GET_ACTIVITIES request for caseIds: ${caseIds}`);
-  activityService.getActivities(caseIds, user, token)
+  activityService.getActivities(caseIds, user, token, serviceAuthorization)
     .then((result) => ifNotTimedOut(req, () => {
       debug(`GET_ACTIVITIES response is ==> ${JSON.stringify(result)}`);
       res.status(200).json(result);
     }))
     .catch((err) => ifNotTimedOut(req, () => {
-      next(err.message);
+      next(err);
     }));
 };
 

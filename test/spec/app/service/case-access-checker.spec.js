@@ -31,11 +31,15 @@ describe('case access checker', () => {
 
     expect(fetch).to.have.been.calledTwice;
     expect(fetch.firstCall).to.have.been.calledWith('https://ccd.local/cases/111', {
+      timeout: 5000,
+      redirect: 'error',
       headers: {
         Authorization: 'Bearer token',
       },
     });
     expect(fetch.secondCall).to.have.been.calledWith('https://ccd.local/cases/222', {
+      timeout: 5000,
+      redirect: 'error',
       headers: {
         Authorization: 'Bearer token',
       },
@@ -50,6 +54,13 @@ describe('case access checker', () => {
       expect(error).to.be.instanceOf(Error);
       expect(error).to.include(caseAccessChecker.ACCESS_DENIED_ERROR);
     }
+  });
+
+  it('forwards the proxy service credential alongside the caller identity to CCD', async () => {
+    await caseAccessChecker.assertUserHasAccess(['111'], 'Bearer user', 'Bearer service');
+    expect(fetch.firstCall.args[1].headers).to.deep.equal({
+      Authorization: 'Bearer user', ServiceAuthorization: 'Bearer service'
+    });
   });
 
   it('should reject with forbidden when CCD denies access', async () => {
