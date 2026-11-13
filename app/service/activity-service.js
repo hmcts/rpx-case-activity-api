@@ -38,8 +38,8 @@ function createActivityService(
       .map((item) => JSON.parse(userDetails[uniqueUserIds.indexOf(item)][1]));
   };
 
-  const addActivity = (caseId, user, activity, authorization, serviceAuthorization) => (
-    caseAccessChecker.assertUserHasAccess([caseId], authorization, serviceAuthorization)
+  const addActivity = (caseId, user, activity, authorization) => (
+    caseAccessChecker.assertUserHasAccess([caseId], authorization)
       .then(() => {
         const storeUserActivity = () => {
           const key = redisActivityKeys[activity](caseId);
@@ -64,8 +64,8 @@ function createActivityService(
       })
   );
 
-  const getActivities = async (caseIds, user, authorization, serviceAuthorization) => {
-    await caseAccessChecker.assertUserHasAccess(caseIds, authorization, serviceAuthorization);
+  const getActivities = async (caseIds, user, authorization) => {
+    await caseAccessChecker.assertUserHasAccess(caseIds, authorization);
 
     const uniqueUserIds = [];
     const now = Date.now();

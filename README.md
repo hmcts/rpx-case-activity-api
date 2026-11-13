@@ -78,17 +78,6 @@ requires an updated application image without changing the current chart or infr
 
 Clients first call `GET /web-pubsub/negotiate` with their normal Authorization header, then
 connect to the returned `url` using the `json.webpubsub.azure.v1` subprotocol.
-Use the complete returned URL: its opaque `session` reference binds the connection to
-the authenticated caller. Credentials remain in Redis until their JWT expiry or
-one hour, whichever comes first. The backend closes expired connections so the
-existing toolkit reconnect flow negotiates fresh credentials automatically.
-
-With `RPX_CASE_ACCESS_CHECK_ENABLED=true` (the deployment default), `watch`, `view`,
-and `edit` verify access to every requested case through `RPX_BASE_URL/cases/:caseId`
-using the caller's Authorization header and the proxy's ServiceAuthorization header
-when supplied, before subscribing or changing activity.
-A denied case rejects the entire request; verification failures deny access as well.
-Keep this check enabled in deployed environments.
 
 The existing activity event contract is retained. Send `view`, `edit`, `watch`, `stop`, and
 `stopAll` as Web PubSub events, for example:
@@ -109,12 +98,6 @@ The Web PubSub hub upstream must point to
 
 Demo uses the callback URL
 `https://rpx-case-activity-api.demo.platform.hmcts.net/api/webpubsub/hubs/hub/`.
-The demo Flux values in `cnp-flux-config/apps/xui/rpx-case-activity-api/demo.yaml`
-must explicitly set `nodejs.environment.RPX_BASE_URL` to
-`http://ccd-data-store-api-demo.service.core-compute-demo.internal` and keep
-`RPX_CASE_ACCESS_CHECK_ENABLED: true`. Without the CCD URL, the application falls
-back to `localhost:4000` and activity events fail with 502. Case verification uses
-CCD's required `experimental: true` header; no explicit Accept header is needed.
 The callback ingress in `cnp-flux-config/apps/xui/demo/base` routes only the webhook
 and `/health/liveness` to `xui-case-activity-api-nodejs:80`. The existing internal
 ingress used by Int1 is retained. The matching `frontends` entry in

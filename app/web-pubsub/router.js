@@ -22,6 +22,22 @@ function normaliseUser(user, fallbackUserId) {
   };
 }
 
+function parseUser(request) {
+  const storedUser = request.context.states?.user;
+  if (storedUser && typeof storedUser === 'object') {
+    return normaliseUser(storedUser, request.context.userId);
+  }
+  const queryUser = firstQueryValue(request.queries || request.query, 'user');
+  if (typeof queryUser === 'string') {
+    try {
+      return normaliseUser(JSON.parse(queryUser), request.context.userId);
+    } catch (error) {
+      logger.warn('Failed to parse user from Web PubSub connection query', error);
+    }
+  }
+  return normaliseUser(null, request.context.userId);
+}
+
 function getRequestData(request) {
   if (request.data && typeof request.data === 'object' && !Buffer.isBuffer(request.data)) {
     return request.data;
@@ -72,44 +88,9 @@ function errorForLog(error) {
   ].join(' ');
 }
 
-function createRouter(serviceClient, handlers, authSession, caseAccessChecker) {
-  const expiryTimers = new Map();
-
-  function clearExpiryTimer(connectionId) {
-    clearTimeout(expiryTimers.get(connectionId));
-    expiryTimers.delete(connectionId);
-  }
-
-  function closeExpiredConnection(connectionId) {
-    return serviceClient.closeConnection(connectionId, { reason: 'Activity session expired' })
-      .catch(() => logger.warn(`Failed to close expired activity connection ${connectionId}`));
-  }
-
-  function scheduleSessionExpiry(connectionId, expiresAt) {
-    clearExpiryTimer(connectionId);
-    if (!Number.isFinite(expiresAt)) {
-      return;
-    }
-    const timer = setTimeout(() => {
-      expiryTimers.delete(connectionId);
-      // The toolkit already renegotiates on disconnect/stopped. Close the expired
-      // connection so it cannot remain subscribed with unusable credentials.
-      closeExpiredConnection(connectionId);
-    }, Math.max(0, expiresAt - Date.now()));
-    timer.unref();
-    expiryTimers.set(connectionId, timer);
-  }
-
+function createRouter(serviceClient, handlers) {
   async function handleConnect(request, response) {
-    const sessionId = firstQueryValue(request.queries || request.query, 'session');
-    let authentication;
-    try {
-      authentication = await authSession.get(sessionId);
-    } catch (error) {
-      response.fail(503, 'Unable to verify user');
-      return;
-    }
-    const user = normaliseUser(authentication?.user);
+    const user = parseUser(request);
     logger.warn(
       `Web PubSub connect received connectionId=${request.context.connectionId} `
       + `userId=${request.context.userId || '<missing>'}`
@@ -119,7 +100,7 @@ function createRouter(serviceClient, handlers, authSession, caseAccessChecker) {
       response.fail(401, 'A user is required');
       return;
     }
-    if (!request.context.userId || String(user.uid) !== String(request.context.userId)) {
+    if (request.context.userId && String(user.uid) !== String(request.context.userId)) {
       logger.warn(
         `Web PubSub connect failed: token userId=${request.context.userId} `
         + `does not match payload uid=${user.uid}`
@@ -131,9 +112,7 @@ function createRouter(serviceClient, handlers, authSession, caseAccessChecker) {
       await handlers.cleanupReconnectedUser(user.uid, request.context.connectionId);
     }
     response.setState('user', user);
-    response.setState('session', sessionId);
     response.setState('rooms', []);
-    scheduleSessionExpiry(request.context.connectionId, authentication.expiresAt);
     logger.warn(`Web PubSub connect accepted for uid=${user.uid}`);
     response.success({ userId: String(user.uid) });
   }
@@ -160,10 +139,9 @@ function createRouter(serviceClient, handlers, authSession, caseAccessChecker) {
     }
 
     const connection = createConnection(serviceClient, request.context);
-    let user = normaliseUser(request.context.states?.user);
+    const user = parseUser(request);
     const data = getRequestData(request);
     const watchCaseIds = normaliseCaseIds(data.caseIds ?? data.caseId);
-    const activityCaseIds = normaliseCaseIds(data.caseId);
     const stopAllCaseIds = normaliseCaseIds(data.caseIds);
     logger.warn(
       `Web PubSub event payload event=${eventName} uid=${user?.uid || '<missing>'} `
@@ -185,48 +163,20 @@ function createRouter(serviceClient, handlers, authSession, caseAccessChecker) {
     }
 
     const actions = {
-      view: () => handlers.addActivity(connection, activityCaseIds[0], user, 'view'),
-      edit: () => handlers.addActivity(connection, activityCaseIds[0], user, 'edit'),
+      view: () => handlers.addActivity(connection, data.caseId, user, 'view'),
+      edit: () => handlers.addActivity(connection, data.caseId, user, 'edit'),
       watch: () => handlers.watch(connection, watchCaseIds),
       stop: () => handlers.stop(connection, data.caseId),
       stopAll: () => handlers.stopAll(connection, stopAllCaseIds)
     };
 
     try {
-      if (['watch', 'view', 'edit'].includes(eventName)) {
-        const authentication = await authSession.get(request.context.states?.session);
-        if (!authentication?.token || !authentication.user?.uid
-          || String(authentication.user.uid) !== String(request.context.userId)) {
-          response.fail(401, 'A valid user session is required');
-          await closeExpiredConnection(connectionId);
-          return;
-        }
-        user = normaliseUser(authentication.user);
-        const caseIds = eventName === 'watch' ? watchCaseIds : activityCaseIds;
-        const invalidActivityCase = eventName !== 'watch'
-          && (Array.isArray(data.caseId) || caseIds.length !== 1);
-        if (invalidActivityCase || caseIds.length === 0
-          || caseIds.some((caseId) => !/^\d{1,16}$/.test(caseId))) {
-          response.fail(400, 'Invalid caseId');
-          return;
-        }
-        // Authorize the entire batch before joining groups, reading or mutating activity.
-        await caseAccessChecker.assertUserHasAccess(
-          caseIds, authentication.token, authentication.serviceAuthorization
-        );
-      }
       logger.warn(`Web PubSub event handling started event=${eventName} connectionId=${connectionId}`);
       await actions[eventName]();
       response.setState('rooms', [...connection.rooms]);
       logger.warn(`Web PubSub event handled successfully event=${eventName} connectionId=${connectionId}`);
       response.success();
     } catch (error) {
-      if ([401, 403, 502].includes(error.status)) {
-        response.fail(error.status, error.status === 403
-          ? 'You are not authorized to access one or more requested cases'
-          : 'Unable to verify case access');
-        return;
-      }
       logger.warn(`Web PubSub ${eventName} handler failed ${errorForLog(error)}`, error);
       const ackPayload = buildAckFailureLog(
         ackId,
@@ -243,7 +193,6 @@ function createRouter(serviceClient, handlers, authSession, caseAccessChecker) {
   }
 
   function onDisconnected(request) {
-    clearExpiryTimer(request.context.connectionId);
     logger.warn(`Web PubSub disconnected connectionId=${request.context.connectionId}`);
     handlers.removeConnectionActivity(request.context.connectionId).catch((error) => {
       logger.warn(`Web PubSub disconnect cleanup failed for ${request.context.connectionId}`, error);
@@ -254,3 +203,4 @@ function createRouter(serviceClient, handlers, authSession, caseAccessChecker) {
 }
 
 module.exports = createRouter;
+module.exports.parseUser = parseUser;

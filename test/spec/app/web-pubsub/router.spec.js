@@ -1,14 +1,5 @@
 const { expect } = require('chai');
-const routerFactory = require('../../../../app/web-pubsub/router');
-
-const authentication = {
-  user: { uid: 'user-1', forename: 'Test', surname: 'User' }, token: 'Bearer token'
-};
-const authSession = { get: async () => authentication };
-const caseAccessChecker = { assertUserHasAccess: async () => undefined };
-const createRouter = (client, handlers) => routerFactory(
-  client, handlers, authSession, caseAccessChecker
-);
+const createRouter = require('../../../../app/web-pubsub/router');
 
 describe('web-pubsub.router', () => {
   const calls = [];
@@ -57,11 +48,11 @@ describe('web-pubsub.router', () => {
     expect(response.states.rooms).to.deep.equal([]);
   });
 
-  it('rejects a user that does not match the negotiated token', async () => {
+  it('rejects a user that does not match the negotiated token', () => {
     const router = createRouter(serviceClient, handlers);
 
-    await router.handleConnect({
-      context: { states: {}, userId: 'user-2' },
+    router.handleConnect({
+      context: { states: {}, userId: 'user-1' },
       queries: { user: [JSON.stringify({ uid: 'user-2' })] }
     }, response);
 
@@ -77,16 +68,15 @@ describe('web-pubsub.router', () => {
     await router.handleUserEvent({
       context: {
         connectionId: 'connection-1',
-        userId: 'user-1',
         eventName: 'view',
         states: { user: { uid: 'user-1', name: 'Test User' }, rooms: [] }
       },
-      data: { caseId: '111' }
+      data: { caseId: 'case-1' }
     }, response);
 
     expect(calls[0][0]).to.equal('addActivity');
     expect(calls[0][1].id).to.equal('connection-1');
-    expect(calls[0][2]).to.equal('111');
+    expect(calls[0][2]).to.equal('case-1');
     expect(calls[0][4]).to.equal('view');
     expect(response.result).to.deep.equal(['success', undefined]);
   });
@@ -103,15 +93,13 @@ describe('web-pubsub.router', () => {
     const result = router.handleUserEvent({
       context: {
         connectionId: 'connection-1',
-        userId: 'user-1',
         eventName: 'edit',
         states: { user: { uid: 'user-1', name: 'Test User' }, rooms: [] }
       },
-      data: { caseId: '111' }
+      data: { caseId: 'case-1' }
     }, response);
 
     expect(response.result).to.equal(undefined);
-    await new Promise((resolve) => setImmediate(resolve));
     completeActivity();
     await result;
     expect(response.result).to.deep.equal(['success', undefined]);
@@ -123,15 +111,14 @@ describe('web-pubsub.router', () => {
     await router.handleUserEvent({
       context: {
         connectionId: 'connection-1',
-        userId: 'user-1',
         eventName: 'watch',
         states: { user: { uid: 'user-1', name: 'Test User' }, rooms: [] }
       },
-      data: { caseIds: ['111'] }
+      data: { caseIds: ['case-1'] }
     }, response);
 
     expect(calls[0][0]).to.equal('watch');
-    expect(calls[0][2]).to.deep.equal(['111']);
+    expect(calls[0][2]).to.deep.equal(['case-1']);
     expect(response.result).to.deep.equal(['success', undefined]);
   });
 
@@ -146,15 +133,14 @@ describe('web-pubsub.router', () => {
     await router.handleUserEvent({
       context: {
         connectionId: 'connection-1',
-        userId: 'user-1',
         eventName: 'watch',
         states: { user: { uid: 'user-1', name: 'Test User' }, rooms: [] }
       },
-      data: { caseId: '111' }
+      data: { caseId: 'case-1' }
     }, response);
 
     expect(calls[0][0]).to.equal('watch');
-    expect(calls[0][2]).to.deep.equal(['111']);
+    expect(calls[0][2]).to.deep.equal(['case-1']);
     expect(response.result).to.deep.equal(['success', undefined]);
   });
 
@@ -163,15 +149,14 @@ describe('web-pubsub.router', () => {
     await router.handleUserEvent({
       context: {
         connectionId: 'connection-1',
-        userId: 'user-1',
         eventName: 'stop',
-        states: { user: { uid: 'user-1', name: 'Test User' }, rooms: ['c:111'] }
+        states: { user: { uid: 'user-1', name: 'Test User' }, rooms: ['c:case-1'] }
       },
-      data: { caseId: '111' }
+      data: { caseId: 'case-1' }
     }, response);
 
     expect(calls[0][0]).to.equal('stop');
-    expect(calls[0][2]).to.equal('111');
+    expect(calls[0][2]).to.equal('case-1');
     expect(response.result).to.deep.equal(['success', undefined]);
   });
 
@@ -180,15 +165,14 @@ describe('web-pubsub.router', () => {
     await router.handleUserEvent({
       context: {
         connectionId: 'connection-1',
-        userId: 'user-1',
         eventName: 'stopAll',
-        states: { user: { uid: 'user-1', name: 'Test User' }, rooms: ['c:111', 'c:222'] }
+        states: { user: { uid: 'user-1', name: 'Test User' }, rooms: ['c:case-1', 'c:case-2'] }
       },
-      data: { caseIds: ['111', '222'] }
+      data: { caseIds: ['case-1', 'case-2'] }
     }, response);
 
     expect(calls[0][0]).to.equal('stopAll');
-    expect(calls[0][2]).to.deep.equal(['111', '222']);
+    expect(calls[0][2]).to.deep.equal(['case-1', 'case-2']);
     expect(response.result).to.deep.equal(['success', undefined]);
   });
 
@@ -197,7 +181,6 @@ describe('web-pubsub.router', () => {
     await router.handleUserEvent({
       context: {
         connectionId: 'connection-1',
-        userId: 'user-1',
         eventName: 'watch',
         states: { user: { uid: 'user-1', name: 'Test User' }, rooms: [] }
       },

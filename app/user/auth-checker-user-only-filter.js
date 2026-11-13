@@ -39,7 +39,6 @@ const authCheckerUserOnlyFilter = (req, res, next) => {
     .then((user) => {
       req.authentication.user = user;
       req.authentication.token = authorization;
-      req.authentication.serviceAuthorization = req.get('ServiceAuthorization');
       logger.warn(`Authentication successful for uid=${user?.uid || '<missing>'}`);
     })
     .then(() => {
@@ -52,7 +51,7 @@ const authCheckerUserOnlyFilter = (req, res, next) => {
         mapFetchErrors(error, next);
       } else {
         logger.warn(`Unsuccessful user authentication: ${error?.message || error}`);
-        error.status = error.status || 401;
+        error.status = error.status || 401; // eslint-disable-line no-param-reassign
         logger.warn(`Returning authentication error with status=${error.status}`);
         next(error);
       }

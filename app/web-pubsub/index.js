@@ -14,8 +14,6 @@ const ActivityService = require('./service/activity-service');
 const pubSub = require('./redis/pub-sub')();
 const createHandlers = require('./service/handlers');
 const createRouter = require('./router');
-const createAuthSession = require('./auth-session');
-const createCaseAccessChecker = require('../service/case-access-checker');
 
 const logger = Logger.getLogger('web-pubsub-index');
 const CONNECTION_STRING_CONFIG = 'secrets.rpx.rpx-case-activity-api-web-pubsub-primary-connection-string';
@@ -78,10 +76,7 @@ function createWebPubSub(redis, dependencies = {}) {
   logger.warn(`Web PubSub service endpoint resolved as ${serviceClient.endpoint}`);
   const activityService = ActivityService(config, redis);
   const handlers = createHandlers(activityService, serviceClient);
-  const authSession = createAuthSession(redis);
-  const router = createRouter(
-    serviceClient, handlers, authSession, createCaseAccessChecker(config)
-  );
+  const router = createRouter(serviceClient, handlers);
   const allowedEndpoints = config.has('webPubSub.allowedEndpoints')
     ? config.get('webPubSub.allowedEndpoints')
     : [serviceClient.endpoint];
@@ -121,14 +116,10 @@ function createWebPubSub(redis, dependencies = {}) {
   async function negotiate(req, res, next) {
     try {
       const user = req.authentication?.user;
-      if (!user?.uid || !req.authentication?.token) {
-        throw Object.assign(new Error('A user is required'), { status: 401 });
-      }
       logger.warn(`Negotiating Web PubSub client token for user ${user?.uid || '<missing>'}`);
       const token = await serviceClient.getClientAccessToken({ userId: String(user.uid) });
       const separator = token.url.includes('?') ? '&' : '?';
-      const sessionId = await authSession.create(req.authentication);
-      const url = `${token.url}${separator}session=${sessionId}`;
+      const url = `${token.url}${separator}user=${encodeURIComponent(JSON.stringify(user))}`;
       logger.warn(`Negotiation produced Web PubSub URL host ${new URL(url).host}`);
       res.json({ ...token, url });
     } catch (error) {

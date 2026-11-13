@@ -21,9 +21,8 @@ describe('authCheckerUserOnlyFilter', () => {
   beforeEach(() => {
     req = {
       headers: {},
-      get: sinon.stub()
+      get: sinon.stub().withArgs('Authorization').returns('Bearer token')
     };
-    req.get.withArgs('Authorization').returns('Bearer token');
     res = {};
 
     userRequestAuthorizer = {
@@ -51,14 +50,6 @@ describe('authCheckerUserOnlyFilter', () => {
       filter(req, res, () => {
         expect(req.authentication.user).to.equal(user);
         expect(req.authentication.token).to.equal('Bearer token');
-        done();
-      });
-    });
-
-    it('retains the proxy service credential for downstream case authorization', done => {
-      req.get.withArgs('ServiceAuthorization').returns('Bearer service');
-      filter(req, res, () => {
-        expect(req.authentication.serviceAuthorization).to.equal('Bearer service');
         done();
       });
     });
