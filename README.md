@@ -109,6 +109,12 @@ The Web PubSub hub upstream must point to
 
 Demo uses the callback URL
 `https://rpx-case-activity-api.demo.platform.hmcts.net/api/webpubsub/hubs/hub/`.
+The demo Flux values in `cnp-flux-config/apps/xui/rpx-case-activity-api/demo.yaml`
+must explicitly set `nodejs.environment.RPX_BASE_URL` to
+`http://ccd-data-store-api-demo.service.core-compute-demo.internal` and keep
+`RPX_CASE_ACCESS_CHECK_ENABLED: true`. Without the CCD URL, the application falls
+back to `localhost:4000` and activity events fail with 502. Case verification uses
+CCD's required `experimental: true` header; no explicit Accept header is needed.
 The callback ingress in `cnp-flux-config/apps/xui/demo/base` routes only the webhook
 and `/health/liveness` to `xui-case-activity-api-nodejs:80`. The existing internal
 ingress used by Int1 is retained. The matching `frontends` entry in

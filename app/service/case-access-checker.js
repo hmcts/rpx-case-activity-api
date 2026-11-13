@@ -1,4 +1,7 @@
+const { Logger } = require('@hmcts/nodejs-logging');
 const fetch = require('../util/fetch');
+
+const logger = Logger.getLogger('case-access-checker');
 
 const ACCESS_DENIED_ERROR = {
   error: 'Forbidden',
@@ -85,10 +88,23 @@ function createCaseAccessChecker(config) {
       timeout: 5000,
       redirect: 'error',
       headers: {
+        experimental: 'true',
         Authorization: authorization,
         ...(serviceAuthorization ? { ServiceAuthorization: serviceAuthorization } : {}),
       },
     }))).catch((error) => {
+      // Do not log tokens, response bodies or the raw fetch error (which can
+      // contain credentials). Keep upstream failures distinguishable from denials.
+      const code = typeof error?.code === 'string' && /^[A-Z0-9_]{1,40}$/.test(error.code)
+        ? error.code : 'none';
+      const type = ['system', 'request-timeout', 'no-redirect', 'max-redirect'].includes(error?.type)
+        ? error.type : 'unknown';
+      logger.warn(
+        `Case access verification failed upstream=${new URL(baseUrl).origin} `
+        + `upstreamStatus=${Number.isInteger(error?.status) ? error.status : 'none'} `
+        + `code=${code} type=${type} caseCount=${uniqueCaseIds.length} `
+        + `serviceAuthorizationPresent=${Boolean(serviceAuthorization)}`
+      );
       throw toError(mapError(error));
     });
   };

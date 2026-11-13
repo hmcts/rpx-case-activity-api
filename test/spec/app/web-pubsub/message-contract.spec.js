@@ -159,6 +159,7 @@ describe('Web PubSub toolkit message contract with case authorization', () => {
   function permit(caseId) {
     return nock('http://contract-ccd.test', {
       reqheaders: {
+        experimental: 'true',
         authorization: authentication.token,
         serviceauthorization: authentication.serviceAuthorization
       }

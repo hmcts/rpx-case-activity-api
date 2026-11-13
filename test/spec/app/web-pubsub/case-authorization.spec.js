@@ -84,7 +84,11 @@ describe('Web PubSub case authorization boundary', () => {
     const {
       activityService, serviceClient, router, response, request
     } = setup();
-    const scope = nock('http://case-authorization.test').get('/cases/111').reply(200, {});
+    const scope = nock('http://case-authorization.test', {
+      reqheaders: {
+        experimental: 'true',
+      }
+    }).get('/cases/111').reply(200, {});
     await router.handleUserEvent(request('watch', { caseIds: ['111'] }), response);
     expect(scope.isDone()).to.equal(true);
     expect(response.success.calledOnce).to.equal(true);

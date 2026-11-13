@@ -90,7 +90,7 @@ Angular test suite or a connection to live Azure.
 - Session tests cover credential expiry and opaque references. REST and user
   middleware regression tests cover status preservation and service credentials.
 
-Validation: all 277 unit tests passed on Node 24.22.1. Application lint, lint on
+Validation: all 278 unit tests passed on Node 24.22.1. Application lint, lint on
 the new test files and updated router tests, and `git diff --check` passed. The
 isolated toolkit transport compatibility harness also passed.
 
@@ -111,5 +111,43 @@ continuous revalidation of group membership when case permissions change. Expiry
 closure is scheduled by the process that accepts the connection; process loss can
 lose that timer. Subsequent protected events still reject expired sessions and
 close the connection, but uninterrupted expiry enforcement across process restarts
-would require a distributed connection lifecycle. Live Azure/CCD and the full
-frontend test suite have not been run. No deployment or Jira status change was made.
+would require a distributed connection lifecycle. The full frontend suite and
+end-to-end Azure message flow have not been run. No deployment or Jira status
+change was made.
+
+## Demo follow-up: 12 November 2026
+
+The deployed `xui-case-activity-api` image `pr-39-732a7a9-20261112131829` returned
+502 on both search watches and single-case activity. Read-only inspection found
+two integration defects:
+
+1. The running demo HelmRelease omitted `RPX_BASE_URL`. The process resolved its
+   CCD base URL to `http://localhost:4000`; probing that endpoint reproduced
+   `ECONNREFUSED`. The actual demo CCD health endpoint was reachable with HTTP 200.
+2. Case verification omitted CCD's required `experimental` header. The real CCD service returned
+   an endpoint-not-found 404 without the `experimental` header. CCD's official
+   `v2/external/controller/CaseController.java` requires that header for
+   `GET /cases/{caseId}` and produces the case v2 media type.
+
+The checker now sends `experimental: true`. A separate live demo lookup returned
+HTTP 200 without an explicit Accept header, so the media-type constant and Accept
+header were removed. Local demo Flux values explicitly supply the correct CCD URL
+and enable authorization.
+Existing Redis and image-policy edits in that checkout were preserved.
+
+Using the affected user's existing server-side session, the corrected lookup
+returned HTTP 200. The exact patched checker was then evaluated in memory inside
+the demo pod, with its CCD URL overridden to the real demo service: the complete
+25-case batch from the reported watch event passed authorization. No credentials,
+case bodies, or session references were printed. The running application and
+Kubernetes/Flux resources were not modified by these probes.
+
+Regression tests now require `experimental: true` at the mocked CCD boundary, so a
+request missing it no longer passes the positive message-contract tests. Safe
+failure diagnostics report the upstream origin, status/network code, case count
+and service-credential presence, without logging credentials or response bodies.
+All access checks and fail-closed behavior remain enabled.
+
+Both the backend build and the demo Flux values must be deployed to resolve the
+running demo failure. Setting only the URL would leave the missing-header defect;
+deploying only the backend would leave the localhost fallback.
