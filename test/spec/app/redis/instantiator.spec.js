@@ -6,10 +6,9 @@ describe('redis instantiator', () => {
     let options;
     const settings = {
       'secrets.rpx.activity-managed-redis-connection-string': connectionString,
-      'secrets.rpx.activity-redis-password': 'local-password',
+      'redis.password': 'local-password',
       'redis.host': 'localhost',
       'redis.port': 6379,
-      'redis.ssl': false,
       'redis.keyPrefix': 'activity:',
       ...overrides
     };
@@ -62,29 +61,11 @@ describe('redis instantiator', () => {
   it('preserves local Redis options and client helpers when no managed URL is configured', () => {
     const { options, client } = createWithConnectionString('');
     expect(options).to.include({
-      host: 'localhost', port: 6379, password: 'local-password', tls: false
+      host: 'localhost', port: 6379, password: 'local-password'
     });
     const pipeline = [[null, 'OK'], [null, 1]];
     expect(client.logPipelineFailures(pipeline, 'test')).to.equal(pipeline);
     expect(client.extractPipelineResults(pipeline)).to.deep.equal(['OK', 1]);
-  });
-
-  it('preserves legacy remote Redis TLS, password, port, and prefix settings', () => {
-    const tls = { servername: 'legacy.redis.cache.windows.net' };
-    const { options } = createWithConnectionString('', {
-      'redis.host': 'legacy.redis.cache.windows.net',
-      'redis.port': 6380,
-      'redis.ssl': tls,
-      'redis.keyPrefix': 'existing-prefix:',
-      'secrets.rpx.activity-redis-password': 'existing-password'
-    });
-    expect(options).to.include({
-      host: 'legacy.redis.cache.windows.net',
-      port: 6380,
-      password: 'existing-password',
-      keyPrefix: 'existing-prefix:'
-    });
-    expect(options.tls).to.equal(tls);
   });
 
   it('should configure ioredis to retry every 5-10 seconds', () => {

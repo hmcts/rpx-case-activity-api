@@ -4,6 +4,6 @@ nodejs:
   keyVaults:
     rpx:
       secrets:
-        - name: activity-redis-password
+        - name: activity-managed-redis-connection-string
         - name: app-insights-connection-string-at
         - name: rpx-case-activity-api-web-pubsub-primary-connection-string

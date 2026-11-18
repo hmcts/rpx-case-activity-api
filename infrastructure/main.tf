@@ -34,11 +34,10 @@ data "azurerm_subnet" "cft_infra_web_pubsub_subnet" {
   resource_group_name  = "cft-${var.env}-network-rg"
 }
 
-
-resource "azurerm_key_vault_secret" "redis_connection_string" {
-  name         = "activity-redis-password"
-  value        = module.redis-activity-service.access_key
-  key_vault_id = data.azurerm_key_vault.key_vault.id
+data "azurerm_subnet" "core_infra_redis_subnet" {
+  name                 = "core-infra-subnet-1-${var.env}"
+  virtual_network_name = "core-infra-vnet-${var.env}"
+  resource_group_name  = "core-infra-${var.env}"
 }
 
 module "application_insights" {
@@ -63,19 +62,42 @@ resource "azurerm_resource_group" "rg" {
   tags = var.common_tags
 }
 
-module "redis-activity-service" {
-  source                        = "git@github.com:hmcts/cnp-module-redis?ref=4.x"
-  product                       = "${var.product}-activity-service"
-  location                      = var.location
-  env                           = var.env
-  private_endpoint_enabled      = true
-  redis_version                 = "6"
-  business_area                 = "cft" # cft or sds
-  public_network_access_enabled = false
-  common_tags                   = var.common_tags
-  sku_name                      = var.sku_name
-  family                        = var.family
-  capacity                      = var.capacity
+module "managed_redis" {
+  source = "git@github.com:hmcts/terraform-module-azure-managed-redis?ref=main"
+
+  product     = var.product
+  component   = var.component
+  env         = var.env
+  location    = var.location
+  common_tags = var.common_tags
+
+  sku_name = var.managed_redis_sku_name
+
+  public_network_access   = "Disabled"
+  create_private_endpoint = true
+  subnet_id               = data.azurerm_subnet.core_infra_redis_subnet.id
+  private_dns_zone_ids = [
+    "/subscriptions/${var.private_dns_subscription_id}/resourceGroups/core-infra-intsvc-rg/providers/Microsoft.Network/privateDnsZones/privatelink.redis.azure.net"
+  ]
+
+  access_keys_authentication_enabled = true
+  persistence_rdb_backup_frequency   = "6h"
+  clustering_policy                  = "EnterpriseCluster"
+}
+
+data "azurerm_managed_redis" "connection" {
+  name                = "${var.product}-${var.component}-${var.env}"
+  resource_group_name = module.managed_redis.resource_group_name
+
+  # An imported cluster can lack its default database. Read connection details
+  # after the module creates it rather than using null outputs from the import.
+  depends_on = [module.managed_redis]
+}
+
+resource "azurerm_key_vault_secret" "managed_redis_connection_string" {
+  name         = "activity-managed-redis-connection-string"
+  value        = "rediss://:${urlencode(data.azurerm_managed_redis.connection.default_database[0].primary_access_key)}@${data.azurerm_managed_redis.connection.hostname}:${data.azurerm_managed_redis.connection.default_database[0].port}"
+  key_vault_id = data.azurerm_key_vault.key_vault.id
 }
 
 resource "azurerm_key_vault_secret" "app_insights_connection_string" {

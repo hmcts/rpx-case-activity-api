@@ -1,6 +1,5 @@
-sku_name = "Premium"
-family   = "P"
-capacity = "1"
+# Production requires 6 GB.
+managed_redis_sku_name = "Balanced_B5"
 
 # Application Insights
 sampling_percentage = 100

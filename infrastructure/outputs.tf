@@ -1,7 +1,7 @@
 output "rpx-case-activity-api-redis-host" {
-  value = module.redis-activity-service.host_name
+  value = data.azurerm_managed_redis.connection.hostname
 }
 
 output "rpx-case-activity-api-redis-port" {
-  value = module.redis-activity-service.redis_port
+  value = data.azurerm_managed_redis.connection.default_database[0].port
 }

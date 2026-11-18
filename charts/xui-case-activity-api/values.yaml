@@ -31,9 +31,6 @@ nodejs:
     IDAM_BASE_URL: https://idam-api.{{ .Values.global.environment }}.platform.hmcts.net
     RPX_BASE_URL: http://ccd-data-store-api-{{ .Values.global.environment }}.service.core-compute-{{ .Values.global.environment }}.internal
     RPX_CASE_ACCESS_CHECK_ENABLED: true
-    REDIS_HOST: xui-activity-service-{{ .Values.global.environment }}.redis.cache.windows.net
-    REDIS_PORT: 6380
-    REDIS_SSL_ENABLED: true
     REDIS_KEY_PREFIX: 'activity:'
     REDIS_ACTIVITY_TTL: 5
     REDIS_USER_DETAILS_TTL: 6000
@@ -44,6 +41,6 @@ nodejs:
   keyVaults:
     rpx:
       secrets:        
-        - name: activity-redis-password
+        - name: activity-managed-redis-connection-string
         - name: app-insights-connection-string-at
         - name: rpx-case-activity-api-web-pubsub-primary-connection-string

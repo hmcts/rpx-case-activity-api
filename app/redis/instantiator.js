@@ -40,8 +40,7 @@ function connectionOptions() {
   return {
     port: config.get('redis.port'),
     host: config.get('redis.host'),
-    password: config.get('secrets.rpx.activity-redis-password'),
-    tls: config.get('redis.ssl'),
+    password: config.get('redis.password'),
   };
 }
 
