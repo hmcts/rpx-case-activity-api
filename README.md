@@ -336,3 +336,64 @@ Licence
 
 This project is licensed under the MIT Licence. See the repository licence
 file for the full text.
+
+## Local IDAM stub
+
+For local development without a running IDAM instance, start the API and a
+loopback-only IDAM stub together:
+
+```
+$ yarn start:local
+```
+
+The stub still requires an `Authorization` header and returns a local user with
+the `caseworker-local` role. To run only the stub alongside an API process that
+is already running, use `yarn start:idam-stub`.
+
+For local multi-user testing (for example viewer/editor presence), pass distinct
+bearer tokens per browser session:
+
+- `Authorization: Bearer local-dev-user:alice`
+- `Authorization: Bearer local-dev-user:bob`
+
+The suffix after `local-dev-user:` becomes the local `uid`, so each session is
+tracked as a different user in activity lists.
+
+
+## Azure Web PubSub
+
+Clients first call `GET /web-pubsub/negotiate` with their normal Authorization header, then
+connect to the returned `url` using the `json.webpubsub.azure.v1` subprotocol.
+
+The existing activity event contract is retained. Send `view`, `edit`, `watch`, `stop`, and
+`stopAll` as Web PubSub events, for example:
+
+```json
+{"type":"event","event":"view","dataType":"json","data":{"caseId":"123"}}
+```
+
+Activity updates are server messages whose JSON data is:
+
+```json
+{"event":"activity","data":[{"caseId":"123","viewers":[],"editors":[]}]}
+```
+
+The Web PubSub hub upstream must point to
+`https://<service-host>/api/webpubsub/hubs/hub/`. Terraform receives this value through
+`web_pubsub_event_handler_url`.
+
+Demo uses the callback URL
+`https://rpx-case-activity-api.demo.platform.hmcts.net/api/webpubsub/hubs/hub/`.
+The callback ingress in `cnp-flux-config/apps/xui/demo/base` routes only the webhook
+and `/health/liveness` to `xui-case-activity-api-nodejs:80`. The existing internal
+ingress used by Int1 is retained. The matching `frontends` entry in
+`azure-platform-terraform/environments/demo/demo.tfvars` provides the HTTPS gateway route.
+
+Deploy the callback ingress and gateway/DNS configuration first. Verify an OPTIONS
+request to the callback with `WebHook-Request-Origin` set to
+`rpx-case-activity-api-webpubsub-demo.webpubsub.azure.com` returns a successful status
+and the matching `WebHook-Allowed-Origin` header. Then apply the demo hub handler
+configuration and verify a browser connection through Azure Web PubSub Live Trace.
+The infrastructure combines Managed Redis with the Web PubSub hub configuration.
+Public access on the Web PubSub resource remains disabled; `tunnel:///` is for local
+development and must not replace this shared demo handler during deployed testing.

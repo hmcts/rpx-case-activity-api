@@ -22,8 +22,9 @@ describe('Redis connection configuration', () => {
   });
 
   function loadClient() {
-    client = proxyquire('../../../../app/redis/redis-client', {
+    client = proxyquire('../../../../app/redis/instantiator', {
       config: {
+        has: (key) => Object.prototype.hasOwnProperty.call(settings, key),
         get: (key) => settings[key],
         util: { getEnv: () => 'test' },
       },
@@ -31,7 +32,7 @@ describe('Redis connection configuration', () => {
       ioredis: function LazyRedis(options) {
         return new Redis({ ...options, lazyConnect: true });
       },
-    });
+    })(() => {});
     return client.options;
   }
 
@@ -56,6 +57,6 @@ describe('Redis connection configuration', () => {
 
   it('rejects an unencrypted managed connection string', () => {
     settings['secrets.rpx.activity-managed-redis-connection-string'] = 'redis://:password@managed.redis.azure.net:10000';
-    expect(loadClient).to.throw('Managed Redis requires a rediss:// connection string');
+    expect(loadClient).to.throw('Managed Redis requires a valid rediss:// connection string');
   });
 });

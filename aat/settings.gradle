@@ -1,1 +1,20 @@
+pluginManagement {
+    repositories {
+        // Plugin dependencies also need the mirror: the Plugin Portal redirects
+        // Maven Central downloads to an endpoint that rate-limits Jenkins agents.
+        maven {
+            name = 'MavenCentralMirror'
+            url = uri('https://maven-central.storage-download.googleapis.com/maven2/')
+        }
+        gradlePluginPortal {
+            // Resolve only the plugin marker and implementation here; public
+            // transitive dependencies use the mirror instead of Central redirects.
+            content {
+                includeGroup 'com.github.spacialcircumstances.gradle-cucumber-reporting'
+                includeGroup 'com.github.spacialcircumstances'
+            }
+        }
+    }
+}
+
 rootProject.name = 'rpx-case-activity-api'

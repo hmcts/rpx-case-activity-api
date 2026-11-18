@@ -27,7 +27,7 @@ describe("add activity route", () => {
     let req = {
       params: { caseid: 55 },
       body: { activity: 'edit' },
-      authentication: { user: { uid: 900 } },
+      authentication: { user: { uid: 900 }, token: 'Bearer token' },
       timedout: false
     }
     let next = () => { };
@@ -40,14 +40,14 @@ describe("add activity route", () => {
     });
     sandbox.stub(activityService, 'addActivity').returns(Promise.resolve('unused result'));
     addActivityRoute(req, res, next)
-    expect(activityService.addActivity).to.have.been.calledWith(req.params.caseid, req.authentication.user, req.body.activity)
+    expect(activityService.addActivity).to.have.been.calledWith(req.params.caseid, req.authentication.user, req.body.activity, 'Bearer token')
   });
 
   it("should return status code 400 when activity is missing", () => {
     let req = {
       params: { caseid: 55 },
       body: {},
-      authentication: { user: { id: 900 } },
+      authentication: { user: { id: 900 }, token: 'Bearer token' },
       timedout: false
     };
 
@@ -63,7 +63,7 @@ describe("add activity route", () => {
     let req = {
       params: { caseid: 55 },
       body: { activity: "unknown" },
-      authentication: { user: { id: 900 } },
+      authentication: { user: { id: 900 }, token: 'Bearer token' },
       timedout: false
     };
 
@@ -80,7 +80,7 @@ describe("add activity route", () => {
     let req = {
       params: { caseid: 55 },
       body: { activity: 'edit' },
-      authentication: { user: { id: 900 } },
+      authentication: { user: { id: 900 }, token: 'Bearer token' },
       timedout: true
     };
     let next = () => { };
@@ -99,7 +99,7 @@ describe("add activity route", () => {
     let req = {
       params: { caseid: 55 },
       body: { activity: 'edit' },
-      authentication: { user: { id: 900 } },
+      authentication: { user: { id: 900 }, token: 'Bearer token' },
       timedout: true
     };
     let res = buildResponse();
