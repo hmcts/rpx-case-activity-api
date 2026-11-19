@@ -41,6 +41,12 @@ variable "web_pubsub_owner_ids" {
   default     = []
 }
 
+variable "web_pubsub_anonymous_connections_enabled" {
+  description = "Whether the Web PubSub hub accepts connections without an access token."
+  type        = bool
+  default     = false
+}
+
 variable "web_pubsub_event_handler_url" {
   description = "Publicly reachable HTTPS URL for the case activity Web PubSub CloudEvents handler. Leave unset until the endpoint is live."
   type        = string
