@@ -4,7 +4,7 @@ RPX CASE ACTIVITY API
 Overview
 --------
 
-The RPX Case Activity API provides real-time case activity information, such
+The RPX  Case Activity API provides real-time case activity information, such
 as which users are viewing or editing a case. Activity data is stored in Redis
 with a short configurable lifetime.
 
