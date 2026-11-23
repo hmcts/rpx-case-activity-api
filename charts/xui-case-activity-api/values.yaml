@@ -37,7 +37,7 @@ nodejs:
     APP_REQUEST_TIMEOUT: 5
     APP_STORE_CLEANUP_CRONTAB: '* * * * *'
     UV_THREADPOOL_SIZE: 64
-    WEB_PUBSUB_CLIENT_ENDPOINT: '{{ if eq .Values.global.environment "perftest" }}wss://rpx-case-activity-api-webpubsub.perftest.platform.hmcts.net{{ end }}'
+    WEB_PUBSUB_CLIENT_ENDPOINT: '{{ if eq .Values.global.environment `perftest` }}wss://rpx-case-activity-api-webpubsub.perftest.platform.hmcts.net{{ end }}'
 
   keyVaults:
     rpx:
