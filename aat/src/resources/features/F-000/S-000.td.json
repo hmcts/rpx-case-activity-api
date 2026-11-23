@@ -15,8 +15,8 @@
 
 	"users": {
 		"invokingUser": {
-			"username": "[[$CCD_CASEWORKER_AUTOTEST_EMAIL]]",
-			"password": "[[$CCD_CASEWORKER_AUTOTEST_PASSWORD]]"
+			"username": "[[$XUI_CASEWORKER_AUTOTEST_EMAIL]]",
+			"password": "[[$XUI_CASEWORKER_AUTOTEST_PASSWORD]]"
 		}
 	},
 

@@ -6,9 +6,12 @@ redis:
       enabled: false
   auth:
     enabled: false
+  image:
+    registry: hmctsprod.azurecr.io
+    repository: imported/bitnami/redis
 
 nodejs:
-  image: 'hmctssbox.azurecr.io/xui/case-activity-api:latest'
+  image: 'hmctsprod.azurecr.io/xui/case-activity-api:latest'
   applicationPort: 3460
   aadIdentityName: rpx
   ingressHost: rpx-case-activity-api-{{ .Values.global.environment }}.service.core-compute-{{ .Values.global.environment }}.internal
@@ -26,12 +29,15 @@ nodejs:
     AUTH_WHITE_LIST: ^caseworker-.+
     AUTH_BLACK_LIST: solicitor
     IDAM_BASE_URL: https://idam-api.{{ .Values.global.environment }}.platform.hmcts.net
+    RPX_BASE_URL: http://ccd-data-store-api-{{ .Values.global.environment }}.service.core-compute-{{ .Values.global.environment }}.internal
+    RPX_CASE_ACCESS_CHECK_ENABLED: true
     REDIS_KEY_PREFIX: 'activity:'
     REDIS_ACTIVITY_TTL: 5
     REDIS_USER_DETAILS_TTL: 6000
     APP_REQUEST_TIMEOUT: 5
     APP_STORE_CLEANUP_CRONTAB: '* * * * *'
     UV_THREADPOOL_SIZE: 64
+    WEB_PUBSUB_CLIENT_ENDPOINT: '{{ if eq .Values.global.environment `perftest` }}wss://rpx-case-activity-api-webpubsub.perftest.platform.hmcts.net{{ end }}'
 
   keyVaults:
     rpx:

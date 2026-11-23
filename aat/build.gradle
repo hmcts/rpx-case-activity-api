@@ -12,10 +12,21 @@ java {
 // tag::repositories[]
 repositories {
     mavenLocal()
-    mavenCentral()
+    // Use the mirror without a direct Central fallback: version ranges query
+    // every matching repository, even when the mirror already has a match.
+    maven {
+        name = 'MavenCentralMirror'
+        url = uri('https://maven-central.storage-download.googleapis.com/maven2/')
+        content {
+            excludeGroup 'com.github.hmcts'
+        }
+    }
     maven {
         name = "AzureArtifacts"
         url = uri("https://pkgs.dev.azure.com/hmcts/Artifacts/_packaging/hmcts-lib/maven/v1")
+        content {
+            includeGroup 'com.github.hmcts'
+        }
     }
 }
 // end::repositories[]

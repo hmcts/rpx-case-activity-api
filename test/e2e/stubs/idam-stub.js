@@ -1,3 +1,6 @@
+const { Logger } = require('@hmcts/nodejs-logging');
+
+const logger = Logger.getLogger('idam-stub');
 const AUTHORIZATION = 'Authorization';
 const ERROR_TOKEN_MISSING = {
   error: 'Bearer token missing',
@@ -8,7 +11,7 @@ const ERROR_TOKEN_MISSING = {
 //Stub idam client which returns the user contained in the token. This allows for easy stubbing of idam requests during tests
 const authCheckerUserOnlyFilter = (req, res, next) => {
 
-  console.log("invoked stub Idam client")
+  logger.warn('invoked stub Idam client');
 
   let bearerToken = req.get(AUTHORIZATION);
 
