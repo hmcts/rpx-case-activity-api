@@ -158,7 +158,7 @@ resource "azurerm_web_pubsub_network_acl" "case_activity" {
 resource "azurerm_web_pubsub_hub" "case_activity" {
   name                          = "hub"
   web_pubsub_id                 = azurerm_web_pubsub.case_activity.id
-  anonymous_connections_enabled = false
+  anonymous_connections_enabled = var.web_pubsub_anonymous_connections_enabled
 
   dynamic "event_handler" {
     for_each = var.web_pubsub_event_handler_url == null ? [] : [var.web_pubsub_event_handler_url]
