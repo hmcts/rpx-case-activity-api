@@ -32,6 +32,7 @@ webPubSub:
   enabled: true
   hub: hub
   eventHandlerPath: /api/webpubsub/hubs/hub/
+  clientEndpoint: ""
 appInsights:
   roleName: "rpx-case-activity-api"
   enabled: true

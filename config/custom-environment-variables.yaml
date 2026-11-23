@@ -32,6 +32,7 @@ webPubSub:
   enabled: WEB_PUBSUB_ENABLED
   hub: WEB_PUBSUB_HUB
   eventHandlerPath: WEB_PUBSUB_EVENT_HANDLER_PATH
+  clientEndpoint: WEB_PUBSUB_CLIENT_ENDPOINT
 appInsights:
   samplingPercentage: APPINSIGHTS_SAMPLING_PERCENTAGE
 

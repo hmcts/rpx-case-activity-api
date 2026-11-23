@@ -73,6 +73,26 @@ function createWebPubSub(redis, dependencies = {}) {
   const ServiceClient = dependencies.WebPubSubServiceClient || WebPubSubServiceClient;
   const EventHandler = dependencies.WebPubSubEventHandler || WebPubSubEventHandler;
   const serviceClient = new ServiceClient(connectionString, hub);
+  const configuredClientEndpoint = config.has('webPubSub.clientEndpoint')
+    ? config.get('webPubSub.clientEndpoint').trim()
+    : '';
+  const clientEndpoint = configuredClientEndpoint ? new URL(configuredClientEndpoint) : null;
+  if (clientEndpoint && (clientEndpoint.protocol !== 'wss:'
+    || clientEndpoint.pathname !== '/' || clientEndpoint.search || clientEndpoint.hash
+    || clientEndpoint.username || clientEndpoint.password)) {
+    throw new Error('webPubSub.clientEndpoint must be a WSS origin without a path, query or credentials');
+  }
+
+  // Route browser connections through the configured proxy while preserving Azure tokens.
+  const clientUrl = (value) => {
+    if (!clientEndpoint) {
+      return value;
+    }
+    const url = new URL(value);
+    url.protocol = clientEndpoint.protocol;
+    url.host = clientEndpoint.host;
+    return url.toString();
+  };
   logger.warn(`Web PubSub service endpoint resolved as ${serviceClient.endpoint}`);
   const activityService = ActivityService(config, redis);
   const handlers = createHandlers(activityService, serviceClient);
@@ -118,10 +138,14 @@ function createWebPubSub(redis, dependencies = {}) {
       const user = req.authentication?.user;
       logger.warn(`Negotiating Web PubSub client token for user ${user?.uid || '<missing>'}`);
       const token = await serviceClient.getClientAccessToken({ userId: String(user.uid) });
-      const separator = token.url.includes('?') ? '&' : '?';
-      const url = `${token.url}${separator}user=${encodeURIComponent(JSON.stringify(user))}`;
+      const response = { ...token, url: clientUrl(token.url) };
+      if (token.baseUrl) {
+        response.baseUrl = clientUrl(token.baseUrl);
+      }
+      const separator = response.url.includes('?') ? '&' : '?';
+      const url = `${response.url}${separator}user=${encodeURIComponent(JSON.stringify(user))}`;
       logger.warn(`Negotiation produced Web PubSub URL host ${new URL(url).host}`);
-      res.json({ ...token, url });
+      res.json({ ...response, url });
     } catch (error) {
       logger.warn('Web PubSub negotiate failed', error);
       next(error);

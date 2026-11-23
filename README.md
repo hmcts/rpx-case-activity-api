@@ -365,6 +365,15 @@ tracked as a different user in activity lists.
 Clients first call `GET /web-pubsub/negotiate` with their normal Authorization header, then
 connect to the returned `url` using the `json.webpubsub.azure.v1` subprotocol.
 
+Set `WEB_PUBSUB_CLIENT_ENDPOINT` to a WSS origin to send browser connections through
+a reverse proxy. The Helm chart sets it to
+`wss://rpx-case-activity-api-webpubsub.perftest.platform.hmcts.net` in Perftest only.
+An empty value uses the Azure hostname. Negotiation rewrites the origin of `url`
+and `baseUrl`, preserving the token, its Azure audience, the hub path and query
+parameters. Backend SDK requests and callback origin validation still use the
+Azure service endpoint. The proxy must forward WebSocket upgrades, query strings
+and subprotocol headers to that service with the correct upstream Host/SNI.
+
 The existing activity event contract is retained. Send `view`, `edit`, `watch`, `stop`, and
 `stopAll` as Web PubSub events, for example:
 
