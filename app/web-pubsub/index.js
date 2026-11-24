@@ -14,9 +14,11 @@ const ActivityService = require('./service/activity-service');
 const pubSub = require('./redis/pub-sub')();
 const createHandlers = require('./service/handlers');
 const createRouter = require('./router');
+const keys = require('./redis/keys');
 
 const logger = Logger.getLogger('web-pubsub-index');
 const CONNECTION_STRING_CONFIG = 'secrets.rpx.rpx-case-activity-api-web-pubsub-primary-connection-string';
+const CLIENT_TOKEN_LIFETIME_MINUTES = 60;
 
 function isEnabled() {
   if (!config.has('webPubSub.enabled')) {
@@ -96,7 +98,14 @@ function createWebPubSub(redis, dependencies = {}) {
   logger.warn(`Web PubSub service endpoint resolved as ${serviceClient.endpoint}`);
   const activityService = ActivityService(config, redis);
   const handlers = createHandlers(activityService, serviceClient);
-  const router = createRouter(serviceClient, handlers);
+  const resolveNegotiatedUser = clientEndpoint ? async (userId) => {
+    if (!userId) {
+      return null;
+    }
+    const value = await redis.get(keys.negotiatedUser(userId));
+    return value ? JSON.parse(value) : null;
+  } : null;
+  const router = createRouter(serviceClient, handlers, resolveNegotiatedUser);
   const allowedEndpoints = config.has('webPubSub.allowedEndpoints')
     ? config.get('webPubSub.allowedEndpoints')
     : [serviceClient.endpoint];
@@ -137,13 +146,33 @@ function createWebPubSub(redis, dependencies = {}) {
     try {
       const user = req.authentication?.user;
       logger.warn(`Negotiating Web PubSub client token for user ${user?.uid || '<missing>'}`);
-      const token = await serviceClient.getClientAccessToken({ userId: String(user.uid) });
+      const token = await serviceClient.getClientAccessToken({
+        userId: String(user.uid),
+        ...(clientEndpoint ? { expirationTimeInMinutes: CLIENT_TOKEN_LIFETIME_MINUTES } : {})
+      });
       const response = { ...token, url: clientUrl(token.url) };
       if (token.baseUrl) {
         response.baseUrl = clientUrl(token.baseUrl);
       }
-      const separator = response.url.includes('?') ? '&' : '?';
-      const url = `${response.url}${separator}user=${encodeURIComponent(JSON.stringify(user))}`;
+      let { url } = response;
+      if (clientEndpoint) {
+        // Keep identity JSON off the proxy URL; load it using Azure's verified token subject.
+        const identity = {
+          uid: user.uid,
+          name: user.name,
+          forename: user.forename || user.given_name,
+          surname: user.surname || user.family_name
+        };
+        await redis.set(
+          keys.negotiatedUser(String(user.uid)),
+          JSON.stringify(identity),
+          'EX',
+          CLIENT_TOKEN_LIFETIME_MINUTES * 60
+        );
+      } else {
+        const separator = url.includes('?') ? '&' : '?';
+        url = `${url}${separator}user=${encodeURIComponent(JSON.stringify(user))}`;
+      }
       logger.warn(`Negotiation produced Web PubSub URL host ${new URL(url).host}`);
       res.json({ ...response, url });
     } catch (error) {

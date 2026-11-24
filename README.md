@@ -374,6 +374,12 @@ parameters. Backend SDK requests and callback origin validation still use the
 Azure service endpoint. The proxy must forward WebSocket upgrades, query strings
 and subprotocol headers to that service with the correct upstream Host/SNI.
 
+For proxy connections, negotiation caches only the authenticated user's ID and
+display names in shared Redis for the token's one-hour lifetime. The connect
+callback loads these details using Azure's verified token subject. Identity JSON
+is not appended to the proxy URL: the gateway rejects that query parameter with
+HTTP 403. Connections without a configured proxy retain the existing behaviour.
+
 The existing activity event contract is retained. Send `view`, `edit`, `watch`, `stop`, and
 `stopAll` as Web PubSub events, for example:
 

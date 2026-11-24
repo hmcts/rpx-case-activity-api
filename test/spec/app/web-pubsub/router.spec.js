@@ -63,6 +63,51 @@ describe('web-pubsub.router', () => {
     ]);
   });
 
+  it('loads display details by signed subject and ignores browser-supplied identity', async () => {
+    const subjects = [];
+    const router = createRouter(serviceClient, handlers, async (subject) => {
+      subjects.push(subject);
+      return { uid: 'user-1', given_name: 'Trusted', family_name: 'User' };
+    });
+
+    await router.handleConnect({
+      context: { connectionId: 'connection-1', states: {}, userId: 'user-1' },
+      queries: { user: [JSON.stringify({ uid: 'user-2', name: 'Untrusted' })] }
+    }, response);
+
+    expect(subjects).to.deep.equal(['user-1']);
+    expect(response.result).to.deep.equal(['success', { userId: 'user-1' }]);
+    expect(response.states.user.name).to.equal('Trusted User');
+  });
+
+  it('rejects proxy connections when negotiated identity has expired', async () => {
+    const router = createRouter(serviceClient, handlers, async () => null);
+
+    await router.handleConnect({ context: { userId: 'user-1' } }, response);
+
+    expect(response.result).to.deep.equal(['fail', 401, 'Please negotiate a new connection']);
+    expect(calls).to.deep.equal([]);
+  });
+
+  it('rejects proxy connections without a signed subject', async () => {
+    const router = createRouter(serviceClient, handlers, async () => ({ uid: 'user-1' }));
+
+    await router.handleConnect({ context: {}, queries: { user: [JSON.stringify({ uid: 'user-1' })] } }, response);
+
+    expect(response.result).to.deep.equal(['fail', 401, 'Please negotiate a new connection']);
+  });
+
+  it('returns an error response when shared identity lookup fails', async () => {
+    const router = createRouter(serviceClient, handlers, async () => {
+      throw new Error('Redis unavailable');
+    });
+
+    await router.handleConnect({ context: { userId: 'user-1' } }, response);
+
+    expect(response.result).to.deep.equal(['fail', 500, 'Unable to load connection identity']);
+    expect(calls).to.deep.equal([]);
+  });
+
   it('routes a view message through the retained activity flow', async () => {
     const router = createRouter(serviceClient, handlers);
     await router.handleUserEvent({

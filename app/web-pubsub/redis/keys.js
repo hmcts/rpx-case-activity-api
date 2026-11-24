@@ -10,6 +10,7 @@ const keys = {
     base: (caseId) => keys.compile('case', caseId),
   },
   user: (userId) => keys.compile('user', userId),
+  negotiatedUser: (userId) => `web-pubsub:negotiated-user:${userId}`,
   connection: (connectionId) => keys.compile('connection', connectionId),
   compile: (prefix, value, suffix) => {
     const key = `${keys.prefixes[prefix]}:${value}`;

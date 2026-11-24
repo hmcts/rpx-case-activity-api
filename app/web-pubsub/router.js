@@ -88,9 +88,25 @@ function errorForLog(error) {
   ].join(' ');
 }
 
-function createRouter(serviceClient, handlers) {
+function createRouter(serviceClient, handlers, resolveNegotiatedUser) {
   async function handleConnect(request, response) {
-    const user = parseUser(request);
+    let user;
+    if (resolveNegotiatedUser) {
+      try {
+        const negotiatedUser = await resolveNegotiatedUser(request.context.userId);
+        if (!negotiatedUser || !request.context.userId) {
+          response.fail(401, 'Please negotiate a new connection');
+          return;
+        }
+        user = normaliseUser(negotiatedUser, request.context.userId);
+      } catch (error) {
+        logger.warn('Unable to load negotiated Web PubSub user', error);
+        response.fail(500, 'Unable to load connection identity');
+        return;
+      }
+    } else {
+      user = parseUser(request);
+    }
     logger.warn(
       `Web PubSub connect received connectionId=${request.context.connectionId} `
       + `userId=${request.context.userId || '<missing>'}`

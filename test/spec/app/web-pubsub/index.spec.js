@@ -3,6 +3,10 @@ const path = require('path');
 const proxyquire = require('proxyquire').noCallThru();
 const sinon = require('sinon');
 const { WebPubSubServiceClient } = require('@azure/web-pubsub');
+const { WebPubSubEventHandler } = require('@azure/web-pubsub-express');
+const express = require('express');
+const request = require('supertest');
+const createRouter = require('../../../../app/web-pubsub/router');
 
 const modulePath = path.resolve(__dirname, '../../../../app/web-pubsub/index.js');
 const CONNECTION_STRING_CONFIG = 'secrets.rpx.rpx-case-activity-api-web-pubsub-primary-connection-string';
@@ -46,25 +50,26 @@ function EventHandlerStub(hub, options) {
   this.getMiddleware = () => (req, res, next) => next();
 }
 
-function loadCreateWebPubSub(configConnectionString, enabled) {
+function loadCreateWebPubSub(configConnectionString, enabled, routerOverride) {
   delete require.cache[modulePath];
   const config = createConfigStub(configConnectionString, enabled);
   const pubSubInit = sinon.stub();
+  const routerFactory = routerOverride || sinon.stub().returns({
+    handleConnect: sinon.stub(),
+    handleUserEvent: sinon.stub(),
+    onDisconnected: sinon.stub()
+  });
 
   const createWebPubSub = proxyquire(modulePath, {
     config,
     './service/activity-service': sinon.stub().returns({ ttl: { activity: 5 } }),
     './service/handlers': sinon.stub().returns({ notify: sinon.stub() }),
-    './router': sinon.stub().returns({
-      handleConnect: sinon.stub(),
-      handleUserEvent: sinon.stub(),
-      onDisconnected: sinon.stub()
-    }),
+    './router': routerFactory,
     './redis/pub-sub': () => ({ init: pubSubInit }),
     '@hmcts/nodejs-logging': { Logger: { getLogger: () => ({ warn: sinon.stub() }) } }
   });
 
-  return { createWebPubSub, config };
+  return { createWebPubSub, config, routerFactory };
 }
 
 describe('web-pubsub.index', () => {
@@ -175,21 +180,36 @@ describe('web-pubsub.index', () => {
   });
 
   describe('negotiate browser endpoint', () => {
-    const user = { uid: 'test-user', name: 'Test User' };
+    const user = {
+      uid: 'test-user',
+      name: 'Test User',
+      given_name: 'Test',
+      family_name: 'User',
+      email: 'test@example.com',
+      roles: ['caseworker']
+    };
     const azureUrl = 'wss://example.webpubsub.azure.com/client/hubs/hub';
     const proxyOrigin = 'wss://rpx-case-activity-api-webpubsub.perftest.platform.hmcts.net';
+    let redis;
+    let routerFactory;
+
+    beforeEach(() => {
+      redis = { set: sinon.stub().resolves('OK'), get: sinon.stub().resolves(null) };
+    });
 
     function createHandler(endpoint, ServiceClient = ServiceClientStub) {
       delete process.env.WEB_PUBSUB_CONNECTION_STRING;
       delete process.env.WebPubSubConnectionString;
-      const { createWebPubSub, config } = loadCreateWebPubSub(
+      const loaded = loadCreateWebPubSub(
         'Endpoint=https://example.webpubsub.azure.com;AccessKey=dGVzdC1rZXk=;Version=1.0;'
       );
+      const { createWebPubSub, config } = loaded;
+      routerFactory = loaded.routerFactory;
       if (endpoint !== undefined) {
         config.has.withArgs('webPubSub.clientEndpoint').returns(true);
         config.get.withArgs('webPubSub.clientEndpoint').returns(endpoint);
       }
-      return createWebPubSub({}, {
+      return createWebPubSub(redis, {
         WebPubSubServiceClient: ServiceClient,
         WebPubSubEventHandler: EventHandlerStub
       });
@@ -207,10 +227,12 @@ describe('web-pubsub.index', () => {
         expect(response.url).to.equal(`${azureUrl}?user=${encodeURIComponent(JSON.stringify(user))}`);
         expect(response.token).to.equal('token');
         expect(next.called).to.equal(false);
+        expect(redis.set.called).to.equal(false);
+        expect(routerFactory.firstCall.args[2]).to.equal(null);
       });
     });
 
-    it('rewrites both browser URLs while preserving tokens, query parameters and user details', async () => {
+    it('rewrites proxy URLs without identity JSON and keeps display details server-side', async () => {
       const handler = createHandler(proxyOrigin);
       handler.serviceClient.getClientAccessToken.resolves({
         token: 'signed-token',
@@ -228,13 +250,93 @@ describe('web-pubsub.index', () => {
       expect(url.pathname).to.equal('/client/hubs/hub');
       expect(url.searchParams.get('access_token')).to.equal('signed-token');
       expect(url.searchParams.get('custom')).to.equal('a+b');
-      expect(JSON.parse(url.searchParams.get('user'))).to.deep.equal(user);
+      expect(url.searchParams.has('user')).to.equal(false);
       expect(response.token).to.equal('signed-token');
       expect(response.baseUrl).to.equal(`${proxyOrigin}/client/hubs/hub`);
       expect(handler.serviceClient.endpoint).to.equal('https://example.webpubsub.azure.com');
-      expect(handler.serviceClient.getClientAccessToken.calledOnceWithExactly({ userId: user.uid }))
+      expect(handler.serviceClient.getClientAccessToken.calledOnceWithExactly({
+        userId: user.uid, expirationTimeInMinutes: 60
+      }))
         .to.equal(true);
+      expect(redis.set.calledOnceWithExactly(
+        'web-pubsub:negotiated-user:test-user',
+        JSON.stringify({
+          uid: user.uid, name: user.name, forename: 'Test', surname: 'User'
+        }),
+        'EX', 3600
+      )).to.equal(true);
       expect(next.called).to.equal(false);
+    });
+
+    it('resolves negotiated identity from shared Redis using the verified token subject', async () => {
+      createHandler(proxyOrigin);
+      const identity = { uid: 'test-user', given_name: 'Test', family_name: 'User' };
+      redis.get.resolves(JSON.stringify(identity));
+      const resolveUser = routerFactory.firstCall.args[2];
+
+      expect(await resolveUser('test-user')).to.deep.equal(identity);
+      expect(redis.get.calledOnceWithExactly('web-pubsub:negotiated-user:test-user')).to.equal(true);
+      expect(await resolveUser(undefined)).to.equal(null);
+      expect(redis.get.calledOnce).to.equal(true);
+    });
+
+    it('does not return a proxy token when storing connection identity fails', async () => {
+      const handler = createHandler(proxyOrigin);
+      const error = new Error('Redis unavailable');
+      redis.set.rejects(error);
+      const res = { json: sinon.spy() };
+      const next = sinon.spy();
+
+      await handler.negotiate({ authentication: { user } }, res, next);
+
+      expect(next.calledOnceWithExactly(error)).to.equal(true);
+      expect(res.json.called).to.equal(false);
+    });
+
+    it('negotiates and accepts a real SDK callback without putting identity in the URL', async () => {
+      delete process.env.WEB_PUBSUB_CONNECTION_STRING;
+      delete process.env.WebPubSubConnectionString;
+      const sharedStore = new Map();
+      const sharedRedis = {
+        set: async (key, value) => sharedStore.set(key, value),
+        get: async (key) => sharedStore.get(key)
+      };
+      const loaded = loadCreateWebPubSub(
+        'Endpoint=https://example.webpubsub.azure.com;AccessKey=dGVzdC1rZXk=;Version=1.0;',
+        undefined,
+        createRouter
+      );
+      loaded.config.has.withArgs('webPubSub.clientEndpoint').returns(true);
+      loaded.config.get.withArgs('webPubSub.clientEndpoint').returns(proxyOrigin);
+      const handler = loaded.createWebPubSub(sharedRedis, {
+        WebPubSubServiceClient,
+        WebPubSubEventHandler
+      });
+      const res = { json: sinon.spy() };
+      const next = sinon.spy();
+      await handler.negotiate({ authentication: { user } }, res, next);
+      expect(next.called).to.equal(false);
+      expect(new URL(res.json.firstCall.args[0].url).searchParams.has('user')).to.equal(false);
+
+      const app = express();
+      app.use(handler.middleware);
+      const callback = await request(app)
+        .post('/api/webpubsub/hubs/hub/')
+        .set('ce-awpsversion', '1.0')
+        .set('WebHook-Request-Origin', 'example.webpubsub.azure.com')
+        .set('ce-type', 'azure.webpubsub.sys.connect')
+        .set('ce-hub', 'hub')
+        .set('ce-userid', user.uid)
+        .set('ce-connectionid', 'integration-connection')
+        .send({ claims: {}, query: {} });
+
+      expect(callback.status).to.equal(200);
+      expect(callback.body).to.deep.equal({ userId: user.uid });
+      const state = JSON.parse(Buffer.from(callback.headers['ce-connectionstate'], 'base64').toString());
+      expect(state.user).to.deep.equal({
+        uid: user.uid, name: user.name, forename: 'Test', surname: 'User'
+      });
+      expect(state.rooms).to.deep.equal([]);
     });
 
     it('preserves the Azure token audience using the real SDK with a proxy browser URL', async () => {
